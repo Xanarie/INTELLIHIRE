@@ -1,10 +1,8 @@
-{/* SIDE PANELS */}
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { X, Save, Edit3, Mail, Briefcase } from "lucide-react";
+import { X, Mail, Briefcase, User, Send } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -12,176 +10,121 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
 const API_BASE_URL = "http://localhost:8000/api/admin";
 
 const HIRING_STAGES = [
-  "Applied",
-  "1st Interview",
-  "2nd Interview",
-  "Final Interview",
+  "Pre-screening",
+  "Screening",
+  "Interview",
+  "Offer",
   "Hired",
-  "Failed",
+  "Rejected",
 ];
 
 const ApplicantDetail = ({ applicantId, onClose, onRefresh }) => {
   const [applicant, setApplicant] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState({
-    f_name: "",
-    l_name: "",
-    email: "",
-    applied_position: "",
-    hiring_status: "",
-  });
+  const [selectedStatus, setSelectedStatus] = useState("");
 
   useEffect(() => {
     if (!applicantId) return;
-
+    setLoading(true);
     axios
       .get(`${API_BASE_URL}/applicants/${applicantId}`)
       .then((res) => {
         setApplicant(res.data);
-        setFormData({
-          f_name: res.data.f_name ?? "",
-          l_name: res.data.l_name ?? "",
-          email: res.data.email ?? "",
-          applied_position: res.data.applied_position ?? "",
-          hiring_status: res.data.hiring_status ?? "Applied",
-        });
+        setSelectedStatus(res.data.hiring_status || "Pre-screening");
+        setLoading(false);
       })
-      .catch((err) => console.error(err));
+      .catch((err) => {
+        console.error(err);
+        setLoading(false);
+      });
   }, [applicantId]);
 
-  const handleSave = async () => {
+  const handleConfirmMove = async () => {
     try {
-      setSaving(true);
-      await axios.patch(`${API_BASE_URL}/applicants/${applicantId}`, formData);
-      setIsEditing(false);
-      onRefresh();
+        setSaving(true);
+        await axios.patch(`${API_BASE_URL}/applicants/${applicantId}`, {
+            hiring_status: selectedStatus,
+        });
+      
+        await onRefresh(); 
+      
+        setApplicant(prev => ({ ...prev, hiring_status: selectedStatus }));
+        
+        console.log("Move confirmed, board refreshed.");
+    } catch (err) {
+        console.error("Move failed:", err);
     } finally {
-      setSaving(false);
+        setSaving(false);
     }
-  };
+};
 
-  if (!applicant)
-    return (
-      <div className="h-full flex items-center justify-center">
-        <span className="text-sm text-muted-foreground">
-          Loading applicant...
-        </span>
-      </div>
-    );
+  if (loading) return <div className="p-8 text-center text-slate-500">Loading candidate...</div>;
+  if (!applicant) return null;
+
+  const hasChanged = selectedStatus !== applicant.hiring_status;
 
   return (
-    <Card className="h-full rounded-none border-l">
-      {/* HEADER */}
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>
-            {isEditing
-              ? "Edit Applicant"
-              : `${applicant.f_name} ${applicant.l_name}`}
+    <Card className="h-full rounded-none border-l shadow-2xl bg-white overflow-y-auto">
+      <CardHeader className="flex flex-row items-center justify-between bg-slate-50/50 pb-6">
+        <div className="space-y-1">
+          <CardTitle className="text-xl font-bold text-slate-800">
+            Candidate Profile
           </CardTitle>
-          <p className="text-xs text-muted-foreground mt-1">
-            Candidate Overview
+          <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">
+            ID: #{applicantId}
           </p>
         </div>
-
-        <div className="flex gap-2">
-          {!isEditing && (
-            <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)}>
-              <Edit3 className="h-4 w-4" />
-            </Button>
-          )}
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
+        <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full hover:bg-slate-200">
+          <X className="h-5 w-5 text-slate-500" />
+        </Button>
       </CardHeader>
 
-      <Separator />
-
-      {/* BODY */}
-      <CardContent className="space-y-6 pt-6">
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="First Name">
-            {isEditing ? (
-              <Input
-                value={formData.f_name}
-                onChange={(e) =>
-                  setFormData({ ...formData, f_name: e.target.value })
-                }
-              />
-            ) : (
-              applicant.f_name
-            )}
-          </Field>
-
-          <Field label="Last Name">
-            {isEditing ? (
-              <Input
-                value={formData.l_name}
-                onChange={(e) =>
-                  setFormData({ ...formData, l_name: e.target.value })
-                }
-              />
-            ) : (
-              applicant.l_name
-            )}
-          </Field>
+      <CardContent className="space-y-8 pt-6">
+        {/* READ-ONLY PERSONAL INFORMATION */}
+        <div className="space-y-6">
+          <DetailItem 
+            label="Full Name" 
+            value={`${applicant.f_name} ${applicant.l_name}`} 
+            icon={<User className="h-4 w-4 text-[#2A5C9A]" />} 
+          />
+          <DetailItem 
+            label="Email Address" 
+            value={applicant.email} 
+            icon={<Mail className="h-4 w-4 text-[#2A5C9A]" />} 
+          />
+          <DetailItem 
+            label="Applied Position" 
+            value={applicant.applied_position} 
+            icon={<Briefcase className="h-4 w-4 text-[#2A5C9A]" />} 
+          />
         </div>
 
-        <Field label="Email">
-          {isEditing ? (
-            <Input
-              icon={<Mail className="h-4 w-4" />}
-              value={formData.email}
-              onChange={(e) =>
-                setFormData({ ...formData, email: e.target.value })
-              }
-            />
-          ) : (
-            applicant.email
-          )}
-        </Field>
+        <Separator />
 
-        <Field label="Applied Position">
-          {isEditing ? (
-            <Input
-              value={formData.applied_position}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  applied_position: e.target.value,
-                })
-              }
-            />
-          ) : (
-            applicant.applied_position
-          )}
-        </Field>
-
-        <Field label="Hiring Stage">
-          <Select
-            disabled={!isEditing}
-            value={formData.hiring_status}
-            onValueChange={(value) =>
-              setFormData({ ...formData, hiring_status: value })
-            }
+        {/* EDITABLE HIRING STAGE DROPDOWN */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              Move to Column
+            </label>
+          </div>
+          
+          <Select 
+            value={selectedStatus} 
+            onValueChange={(value) => setSelectedStatus(value)} // Only updates local state
           >
-            <SelectTrigger>
-              <SelectValue />
+            <SelectTrigger className="w-full h-12 border-2 border-slate-100 bg-slate-50 font-bold text-[#2A5C9A]">
+              <SelectValue placeholder="Select stage..." />
             </SelectTrigger>
-            <SelectContent>
+    
+            <SelectContent className="z-[100]" position="popper" sideOffset={5}>
               {HIRING_STAGES.map((stage) => (
                 <SelectItem key={stage} value={stage}>
                   {stage}
@@ -189,34 +132,41 @@ const ApplicantDetail = ({ applicantId, onClose, onRefresh }) => {
               ))}
             </SelectContent>
           </Select>
-        </Field>
-      </CardContent>
 
-      {/* FOOTER */}
-      {isEditing && (
-        <>
-          <Separator />
-          <div className="p-4 flex gap-2">
-            <Button variant="outline" className="flex-1" onClick={() => setIsEditing(false)}>
-              Cancel
+          {/* NEW CONFIRM BUTTON: Only visible if a change is detected */}
+          {hasChanged && (
+            <Button 
+              onClick={handleConfirmMove}
+              disabled={saving}
+              className="w-full h-12 bg-[#2A5C9A] hover:bg-[#1e4470] text-white font-bold rounded-xl shadow-lg transition-all animate-in slide-in-from-bottom-2"
+            >
+              {saving ? (
+                "Updating..."
+              ) : (
+                <>
+                  <Send className="mr-2 h-4 w-4" /> 
+                  Confirm Move to {selectedStatus}
+                </>
+              )}
             </Button>
-            <Button className="flex-1" onClick={handleSave} disabled={saving}>
-              <Save className="h-4 w-4 mr-2" />
-              {saving ? "Saving..." : "Save Changes"}
-            </Button>
-          </div>
-        </>
-      )}
+          )}
+          
+          <p className="text-[10px] text-slate-400 italic">
+            * Selected applicant will remain in their current column until you click "Confirm Move".
+          </p>
+        </div>
+      </CardContent>
     </Card>
   );
 };
 
-const Field = ({ label, children }) => (
-  <div className="space-y-1">
-    <label className="text-xs font-medium text-muted-foreground">
-      {label}
-    </label>
-    <div className="text-sm font-medium">{children}</div>
+const DetailItem = ({ label, value, icon }) => (
+  <div className="flex flex-col gap-1.5">
+    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
+    <div className="flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl shadow-sm">
+      {icon}
+      <span className="text-sm font-bold text-slate-700">{value || "N/A"}</span>
+    </div>
   </div>
 );
 

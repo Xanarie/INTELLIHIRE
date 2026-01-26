@@ -23,6 +23,7 @@ class Applicant(Base):
     isp = Column(String(50))
     applied_position = Column(String(50))
     resume_path = Column(String(255))
+    hiring_status = Column(String(50), default="Pre-screening")
 
     statuses = relationship(
         "ApplicantStatus",
@@ -31,7 +32,7 @@ class Applicant(Base):
     )
 
 
-class ApplicantInput(Base):   # ✅ RENAMED
+class ApplicantInput(Base):  
     __tablename__ = "applicants_input"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -55,7 +56,6 @@ class Job(Base):
     __tablename__ = "jobs"
 
     id = Column(Integer, primary_key=True, index=True)
-    # Update these two lines:
     title = Column(String(255), nullable=False) 
     department = Column(String(255), nullable=False)
     status = Column(String(50), default="Open")
@@ -71,3 +71,11 @@ class JobPost(Base):
     description = Column(Text)
     requirements = Column(Text)
     status = Column(String(50), default="Open", nullable=False)
+
+class Employee(Base):
+    __tablename__ = "employees"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    role = Column(String(255), nullable=False)
+    dept = Column(String(255), default="General")

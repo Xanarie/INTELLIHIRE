@@ -5,12 +5,13 @@ import {
     Search, Plus, LogOut, X, Save, TrendingUp, CheckCircle2 
 } from 'lucide-react';
 
-// Tab Components - Ensure these files exist in the /admin folder!
 import RecruitmentTab from "./admin/Recruitment";
+import DashboardTab from "./admin/Dashboard";
+import EmployeeTab from "./admin/Employees";
 import JobTab from "./admin/Job";
 import OnboardingTab from "./admin/Onboarding";
 import AITab from "./admin/AI";
-import ApplicantDetail from "../components/ApplicantDetail";
+import ApplicantDetail from "./ApplicantDetail";
 
 const AdminPortal = () => {
     // Safety check: ensure hook data exists
@@ -19,13 +20,15 @@ const AdminPortal = () => {
         applicants = [], 
         jobs = [], 
         loading = false, 
+        employees = [],
+        handleSaveEmployee,
         handleSaveJob, 
         handleDeleteJob, 
         handleDeleteApplicant, 
         refresh 
     } = adminData;
     
-    const [activeTab, setActiveTab] = useState('applicants');
+    const [activeTab, setActiveTab] = useState('recruitment');
     const [searchTerm, setSearchTerm] = useState("");
     const [collapsed, setCollapsed] = useState(false);
     const [selectedApplicantId, setSelectedApplicantId] = useState(null);
@@ -39,7 +42,26 @@ const AdminPortal = () => {
 
     const filteredJobs = useMemo(() => (jobs || []).filter(j => 
         (j?.title || '').toLowerCase().includes(searchTerm.toLowerCase())
-    ), [jobs, searchTerm]);TTTTTYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY
+    ), [jobs, searchTerm]);
+    const getStatusBadge = (status) => {
+    const s = status?.toLowerCase() || '';
+    if (s.includes('hired')) return 'bg-emerald-100 text-emerald-700';
+    if (s.includes('rejected')) return 'bg-rose-100 text-rose-700';
+    if (s.includes('interview')) return 'bg-amber-100 text-amber-700';
+    return 'bg-blue-100 text-blue-700';
+    };
+
+    const getAssessmentBadge = (rating) => {
+    const score = parseInt(rating) || 0;
+    if (score >= 80) return 'border-emerald-200 text-emerald-600 bg-emerald-50';
+    if (score >= 50) return 'border-amber-200 text-amber-600 bg-amber-50';
+    return 'border-slate-200 text-slate-400 bg-slate-50';
+    };
+
+    const onboardingApplicants = useMemo(() => 
+    applicants.filter(app => app.status?.toLowerCase() === 'onboarding'),
+    [applicants]
+    );
 
     return (
         <div className="flex h-screen w-full bg-[#F3F7F6] overflow-hidden font-sans text-slate-900">
@@ -48,7 +70,9 @@ const AdminPortal = () => {
                 <Brand collapsed={collapsed} toggle={() => setCollapsed(!collapsed)} />
                 <nav className="flex flex-col gap-1 flex-1 mt-10">
                     <NavItem icon={LayoutDashboard} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} collapsed={collapsed} />
-                    <NavItem icon={Users} label="Applicants" active={activeTab === 'applicants'} onClick={() => setActiveTab('applicants')} collapsed={collapsed} />
+                    <NavItem icon={Users} label="Recruitment" active={activeTab === 'recruitment'} onClick={() => setActiveTab('recruitment')} collapsed={collapsed} />
+                    <NavItem icon={Users} label="Onboarding" active={activeTab === 'onboarding'} onClick={() => setActiveTab('onboarding')} collapsed={collapsed} />
+                    <NavItem icon={Users} label="Employee" active={activeTab === 'employee'} onClick={() => setActiveTab('employee')} collapsed={collapsed} />
                     <NavItem icon={Briefcase} label="Jobs" active={activeTab === 'jobs'} onClick={() => setActiveTab('jobs')} collapsed={collapsed} />
                     <NavItem icon={Sparkles} label="AI" active={activeTab === 'ai'} onClick={() => setActiveTab('ai')} collapsed={collapsed} />
                 </nav>
@@ -78,14 +102,16 @@ const AdminPortal = () => {
                 </header>
 
                 {/* Tab Switcher */}
-                {activeTab === 'dashboard' && <DashboardStats applicants={applicants} jobs={jobs} />}
-                {activeTab === 'applicants' && (
+                {activeTab === 'dashboard' && <DashboardTab applicants={applicants} jobs={jobs} />}
+                {activeTab === 'recruitment' && ( 
                     <RecruitmentTab 
-                        applicants={filteredApplicants} 
-                        onSelect={setSelectedApplicantId} 
-                        onDelete={(e, id) => handleDeleteApplicant(id)} 
-                    />
-                )}
+                    applicants={filteredApplicants} 
+                    onSelect={setSelectedApplicantId} 
+                    onDelete={(e, id) => handleDeleteApplicant(id)} 
+                    getStatusBadge={getStatusBadge} 
+                    getAssessmentBadge={getAssessmentBadge} 
+                    />)
+                }
                 {activeTab === 'jobs' && (
                     <JobTab 
                         jobs={filteredJobs} 
@@ -93,7 +119,18 @@ const AdminPortal = () => {
                         onDelete={handleDeleteJob} 
                     />
                 )}
-                {activeTab === 'onboarding' && <OnboardingTab />}
+                {activeTab === 'employee' && (
+                    <EmployeeTab 
+                        employees={employees} 
+                        onSave={handleSaveEmployee} 
+                    />
+            )}
+                {activeTab === 'onboarding' && (
+                    <OnboardingTab 
+                        applicants={onboardingApplicants} 
+                        onRefresh={refresh}
+                    />
+                )}
                 {activeTab === 'ai' && <AITab />}
             </main>
 
@@ -158,22 +195,6 @@ const SearchBar = ({ value, onChange, placeholder }) => (
             value={value}
             onChange={(e) => onChange(e.target.value)}
         />
-    </div>
-);
-
-const DashboardStats = ({ applicants, jobs }) => (
-    <div className="grid grid-cols-3 gap-6">
-        <StatCard label="Total Candidates" value={applicants?.length || 0} color="bg-emerald-500" icon={Users} trend="+12%" />
-        <StatCard label="Active Positions" value={jobs?.filter(j => j.status === 'Open').length || 0} color="bg-blue-600" icon={Briefcase} trend="+2" />
-        <StatCard label="Finalized Hires" value="4" color="bg-slate-800" icon={CheckCircle2} trend="+1" />
-    </div>
-);
-
-const StatCard = ({ label, value, color, icon: Icon, trend }) => (
-    <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
-        <div className={`w-12 h-12 rounded-2xl ${color} text-white flex items-center justify-center mb-4`}><Icon size={22} /></div>
-        <p className="text-[10px] font-bold text-slate-400 uppercase">{label}</p>
-        <h3 className="text-3xl font-black text-slate-800 mt-1">{value}</h3>
     </div>
 );
 
