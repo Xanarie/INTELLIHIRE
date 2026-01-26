@@ -3,23 +3,22 @@ from sqlalchemy.orm import Session
 from typing import List
 from sqlalchemy import desc
 from ..database import get_db
-from ..models import Applicant, ApplicantStatus , Job
-from app.schemas import UserResponse, ApplicantStatusResponse, UserUpdate, JobCreate
+from ..models import Applicant, ApplicantStatus , Job , Employee
+from app.schemas import UserResponse, ApplicantStatusResponse, UserUpdate, JobCreate, StatusUpdate
 
 
 router = APIRouter(
     prefix="/api/admin",
     tags=["Admin"]
 )
+# ----------------------------
+# RECRUITMENT MANAGEMENT ENDPOINTS   
+# ----------------------------
 
 @router.get("/applicants", response_model=List[UserResponse])
 def get_all_applicants(db: Session = Depends(get_db)):
-    """
-    Retrieve all applicants.
-    """
     applicants = db.query(Applicant).all()
     return applicants
-
 
 @router.get("/applicants/{applicant_id}", response_model=UserResponse)
 def get_applicant(applicant_id: int, db: Session = Depends(get_db)):
@@ -48,6 +47,20 @@ def update_applicant(applicant_id: int, applicant_data: UserUpdate, db: Session 
     db.commit()
     db.refresh(applicant)
     return applicant
+
+
+@router.patch("/applicants/{applicant_id}")
+def update_applicant_status(applicant_id: int, status_data: StatusUpdate, db: Session = Depends(get_db)):
+    # Find the applicant
+    db_applicant = db.query(Applicant).filter(Applicant.id == applicant_id).first()
+    if not db_applicant:
+        raise HTTPException(status_code=404, detail="Applicant not found")
+    
+    # Update only the status
+    db_applicant.hiring_status = status_data.hiring_status
+    db.commit()
+    db.refresh(db_applicant)
+    return db_applicant
 
 
 # ----------------------------
@@ -139,15 +152,15 @@ def create_job(job_data: JobCreate, db: Session = Depends(get_db)):
     return new_job
 
 @router.put("/jobs/{job_id}")
-def update_job(job_id: int, title: str, department: str, status: str, db: Session = Depends(get_db)):
-    """Updates a job title, department, or status (Open/Closed)"""
+def update_job(job_id: int, job_data: JobCreate, db: Session = Depends(get_db)):
+    """Updates a job position using the request body"""
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     
-    job.title = title
-    job.department = department
-    job.status = status
+    # Dynamically update based on schema keys
+    for key, value in job_data.dict(exclude_unset=True).items():
+        setattr(job, key, value)
     
     db.commit()
     db.refresh(job)
@@ -163,3 +176,36 @@ def delete_job(job_id: int, db: Session = Depends(get_db)):
     db.delete(job)
     db.commit()
     return {"message": "Job deleted successfully"}
+
+# ----------------------------
+# EMPLOYEE MANAGEMENT ENDPOINTS
+# ----------------------------
+
+@router.get("/employees")
+def get_all_employees(db: Session = Depends(get_db)):
+    """Fetches all staff from the database for the EmployeeTab"""
+    return db.query(Employee).all()
+
+@router.post("/employees")
+def create_employee(emp_data: dict, db: Session = Depends(get_db)):
+    """Saves a new staff member to the database"""
+    new_emp = Employee(
+        name=emp_data.get("name"),
+        role=emp_data.get("role"),
+        dept=emp_data.get("dept", "General")
+    )
+    db.add(new_emp)
+    db.commit()
+    db.refresh(new_emp)
+    return new_emp
+
+
+# ----------------------------
+# ONBOARDING MANAGEMENT ENDPOINTS
+# ----------------------------
+
+@router.get("/onboarding")
+def get_onboarding_applicants(db: Session = Depends(get_db)):
+    """Fetches all applicants currently in the onboarding process."""
+    # This filters for applicants with the status 'Onboarding'
+    return db.query(Applicant).filter(Applicant.hiring_status == "Onboarding").all()
