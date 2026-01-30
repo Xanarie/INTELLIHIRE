@@ -3,10 +3,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.routers import applicants, admin
 from .database import engine, Base
-
-Base.metadata.create_all(bind=engine)
+from app.ai.routers.ai import router as ai_router
 
 app = FastAPI(title="IntelliHire API")
+
+app.include_router(ai_router, prefix="/ai", tags=["AI"])
+
+#plugs
+app.include_router(applicants.router)
+app.include_router(admin.router)
+
+Base.metadata.create_all(bind=engine)
 
 # CORS middleware
 app.add_middleware(
@@ -19,9 +26,6 @@ app.add_middleware(
 
 app.mount("/resumes", StaticFiles(directory="resumes"), name="resumes")
 
-#plugs
-app.include_router(applicants.router)
-app.include_router(admin.router)
 
 @app.get("/")
 def root():

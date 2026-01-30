@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List
+from typing import Optional, List, Any
 
 
 class StatusUpdate(BaseModel):
@@ -14,6 +14,8 @@ class UserResponse(BaseModel):
     applied_position: str
     current_city: Optional[str] = None
     hiring_status: Optional[str] = "Pre-screening"
+    ai_prescreening_summary: Optional[str] = None
+    ai_match_json: Optional[Any] = None
         
     class Config:
         from_attributes = True

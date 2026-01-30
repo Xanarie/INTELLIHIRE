@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey , Text
+from sqlalchemy.dialects.mysql import JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from .database import Base
@@ -24,6 +25,9 @@ class Applicant(Base):
     applied_position = Column(String(50))
     resume_path = Column(String(255))
     hiring_status = Column(String(50), default="Pre-screening")
+
+    ai_prescreening_summary = Column(Text, nullable=True)   # recruiter-readable summary text
+    ai_match_json = Column(JSON, nullable=True)          # store full match result
 
     statuses = relationship(
         "ApplicantStatus",

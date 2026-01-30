@@ -8,7 +8,8 @@ DB_HOST = "localhost"
 DB_NAME = "applicant_db"
 
 # Connection URL
-DATABASE_URL = f"mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
+# DATABASE_URL = f"mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
+DATABASE_URL = "mysql+mysqlconnector://intellihire_user:StrongPassword123@localhost:3306/intellihire"
 
 # SQLAlchemy engine
 engine = create_engine(DATABASE_URL, echo=True)  # echo=True for logging queries

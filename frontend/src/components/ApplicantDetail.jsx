@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { X, Mail, Briefcase, User, Send } from "lucide-react";
+import { X, Mail, Briefcase, User, Send, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import ReactMarkdown from "react-markdown"; 
 
 const API_BASE_URL = "http://localhost:8000/api/admin";
 
@@ -29,22 +30,25 @@ const ApplicantDetail = ({ applicantId, onClose, onRefresh }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("");
+  const [rerunning, setRerunning] = useState(false); 
+
+  const fetchApplicant = async () => { 
+    if (!applicantId) return; 
+    setLoading(true); 
+    try { 
+      const res = await axios.get(`${API_BASE_URL}/applicants/${applicantId}`); 
+      setApplicant(res.data); 
+      setSelectedStatus(res.data.hiring_status || "Pre-screening"); 
+    } catch (err) { 
+      console.error(err); 
+    } finally { 
+      setLoading(false); 
+    } 
+  }; 
 
   useEffect(() => {
-    if (!applicantId) return;
-    setLoading(true);
-    axios
-      .get(`${API_BASE_URL}/applicants/${applicantId}`)
-      .then((res) => {
-        setApplicant(res.data);
-        setSelectedStatus(res.data.hiring_status || "Pre-screening");
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setLoading(false);
-      });
-  }, [applicantId]);
+    fetchApplicant(); 
+  }, [applicantId]); 
 
   const handleConfirmMove = async () => {
     try {
@@ -64,6 +68,22 @@ const ApplicantDetail = ({ applicantId, onClose, onRefresh }) => {
         setSaving(false);
     }
 };
+
+  // NEW: Run / Re-run Prescreen
+  const handleRunPrescreen = async () => {
+    try {
+      setRerunning(true); 
+      await axios.post(
+        `${API_BASE_URL}/applicants/${applicantId}/prescreen`
+      );
+      await fetchApplicant(); 
+      await onRefresh();      
+    } catch (err) {
+      console.error("Prescreen failed:", err);
+    } finally {
+      setRerunning(false); 
+    }
+  };
 
   if (loading) return <div className="p-8 text-center text-slate-500">Loading candidate...</div>;
   if (!applicant) return null;
@@ -150,10 +170,93 @@ const ApplicantDetail = ({ applicantId, onClose, onRefresh }) => {
               )}
             </Button>
           )}
+
+          {/* RUN PRESCREEN BUTTON */}
+          <Button
+            onClick={handleRunPrescreen}
+            disabled={rerunning}
+            className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg flex items-center gap-2"
+          >
+            <Sparkles size={16} />
+            {rerunning ? "Running Prescreen..." : "Run Prescreen"}
+          </Button>
           
           <p className="text-[10px] text-slate-400 italic">
             * Selected applicant will remain in their current column until you click "Confirm Move".
           </p>
+        </div>
+      
+        {/* IntelliHire AI Prescreening Summary */}
+        <div className="space-y-2">
+          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            IntelliHire AI Prescreening Summary
+          </h3>
+
+          {typeof applicant?.ai_prescreening_summary === "string" &&
+          applicant.ai_prescreening_summary.trim().length > 0 ? (
+            <div className="p-4 bg-white border border-slate-100 rounded-xl shadow-sm leading-relaxed">
+              <ReactMarkdown>
+                {applicant.ai_prescreening_summary || ""}
+              </ReactMarkdown>
+            </div>
+          ) : (
+            <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
+              <p className="text-sm text-slate-500">No prescreening summary yet.</p>
+            </div>
+          )}
+        </div>
+
+        {/* IntelliHire AI Match Scoring */}
+        <div className="space-y-2 mt-6">
+          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            IntelliHire AI Match Insights
+          </h3>
+
+          {applicant?.ai_match_json ? (
+            <div className="grid grid-cols-3 gap-4">
+              {/* Score */}
+              <div className="p-4 bg-white border border-slate-100 rounded-xl shadow-sm text-center">
+                <p className="text-xs text-slate-400 uppercase font-bold">Score</p>
+                <p className="text-xl font-black text-[#2A5C9A]">
+                  {Math.round(applicant.ai_match_json.score)}/100
+                </p>
+              </div>
+
+              {/* Job Compatibility */}
+              <div className="p-4 bg-white border border-slate-100 rounded-xl shadow-sm text-center">
+                <p className="text-xs text-slate-400 uppercase font-bold">
+                  Job Compatibility
+                </p>
+                <p
+                  className={`text-sm font-black ${
+                    applicant.ai_match_json.bucket === "Qualified"
+                      ? "text-green-600"
+                      : applicant.ai_match_json.bucket === "Borderline"
+                      ? "text-yellow-600"
+                      : "text-red-600"
+                  }`}
+                >
+                  {applicant.ai_match_json.bucket}
+                </p>
+              </div>
+
+              {/* Suggested Role */}
+              <div className="p-4 bg-white border border-slate-100 rounded-xl shadow-sm text-center">
+                <p className="text-xs text-slate-400 uppercase font-bold">
+                  Suggested Role
+                </p>
+                <p className="text-sm font-bold text-slate-700">
+                  {applicant.applied_position || "—"}
+                </p>
+              </div>
+            </div>
+            ) : (
+            <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
+              <p className="text-sm text-slate-500">
+                No AI match data available yet.
+              </p>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
