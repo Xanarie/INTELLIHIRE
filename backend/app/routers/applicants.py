@@ -36,6 +36,19 @@ async def create_applicant(
     resume: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
+
+    # Check job applicant limit
+    job = db.query(Job).filter(Job.title == applied_position).first()
+    
+    if job:
+        current_count = db.query(Applicant).filter(
+            Applicant.applied_position == applied_position
+        ).count()
+        
+        if current_count >= job.applicant_limit:
+            job.status = "Closed"  
+            db.commit()
+
     # Email duplication check
     if db.query(Applicant).filter(Applicant.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -70,9 +83,13 @@ async def create_applicant(
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+
+    final_count = db.query(Applicant).filter(Applicant.applied_position == applied_position).count()
+    if job and final_count >= job.applicant_limit:
+        job.status = "Closed"
+        db.commit()
     return new_user
 
-# --- ADMIN-SIDE UPDATES (STILL IN THIS ROUTER FOR NOW) ---
 
 @router.get("/all", response_model=List[UserResponse])
 async def get_all_applicants(db: Session = Depends(get_db)):

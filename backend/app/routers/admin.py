@@ -140,9 +140,21 @@ def delete_applicant(applicant_id: int, db: Session = Depends(get_db)):
 
 @router.get("/jobs")
 def get_all_jobs(db: Session = Depends(get_db)):
-    """Fetches all jobs for the Admin JobTab (Open and Closed)"""
-    return db.query(Job).all()
-
+    jobs = db.query(Job).all()
+    
+    for job in jobs:
+        # 1. Count current applicants for this job title
+        count = db.query(Applicant).filter(
+            Applicant.applied_position == job.title
+        ).count()
+        
+        # 2. Logic: If count >= limit and it's still "Open", close it
+        if count >= job.applicant_limit and job.status == "Open":
+            job.status = "Closed"
+            db.commit() # Save the change automatically
+            
+    return jobs
+    
 @router.post("/jobs")
 def create_job(job_data: JobCreate, db: Session = Depends(get_db)):
     new_job = Job(**job_data.dict())
