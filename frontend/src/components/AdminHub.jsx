@@ -12,9 +12,9 @@ import JobTab from "./admin/Job";
 import OnboardingTab from "./admin/Onboarding";
 import AITab from "./admin/AI";
 import ApplicantDetail from "./ApplicantDetail";
+import JobModal from './modals/JobModal';
 
 const AdminPortal = () => {
-    // Safety check: ensure hook data exists
     const adminData = useAdminData() || {};
     const { 
         applicants = [], 
@@ -63,6 +63,14 @@ const AdminPortal = () => {
     [applicants]
     );
 
+    const handleStatusUpdate = async (job, newStatus) => {
+    const success = await handleSaveJob({ ...job, status: newStatus }, job.id);
+    if (success) {
+        console.log(`Job moved to ${newStatus}`);
+        refresh(); 
+    }
+    };
+
     return (
         <div className="flex h-screen w-full bg-[#F3F7F6] overflow-hidden font-sans text-slate-900">
             {/* Sidebar */}
@@ -90,15 +98,7 @@ const AdminPortal = () => {
                     </div>
                     <div className="flex gap-4">
                         <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder={activeTab} />
-                        {activeTab === 'jobs' && (
-                            <button 
-                                onClick={() => { setEditingJob(null); setIsJobModalOpen(true); }} 
-                                className="bg-emerald-500 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all"
-                            >
-                                <Plus size={18} /> New Job
-                            </button>
-                        )}
-                    </div>
+                        </div>
                 </header>
 
                 {/* Tab Switcher */}
@@ -115,7 +115,8 @@ const AdminPortal = () => {
                 {activeTab === 'jobs' && (
                     <JobTab 
                         jobs={filteredJobs} 
-                        onEdit={(job) => { setEditingJob(job); setIsJobModalOpen(true); }} 
+                        onEdit={(job) => { setEditingJob(job); setIsJobModalOpen(true); }}
+                        applicants={applicants}
                         onDelete={handleDeleteJob} 
                     />
                 )}
@@ -134,18 +135,12 @@ const AdminPortal = () => {
                 {activeTab === 'ai' && <AITab />}
             </main>
 
-            {/* Job Modal */}
-            {isJobModalOpen && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-                    <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden">
-                        <JobForm 
-                            initialData={editingJob} 
-                            onSave={(data) => { handleSaveJob(data, editingJob?.id); setIsJobModalOpen(false); }} 
-                            onClose={() => setIsJobModalOpen(false)} 
-                        />
-                    </div>
-                </div>
-            )}
+            <JobModal 
+            isOpen={isJobModalOpen}
+            onClose={() => { setIsJobModalOpen(false); setEditingJob(null); }}
+            onSave={handleSaveJob} 
+            initialData={editingJob}
+            />
             
             {/* Applicant Detail Slide-over */}
             <div className={`fixed inset-y-0 right-0 w-full md:w-[500px] bg-white shadow-2xl z-[100] transform transition-transform duration-500 ease-in-out border-l border-slate-100 ${selectedApplicantId ? 'translate-x-0' : 'translate-x-full'}`}>
@@ -198,18 +193,5 @@ const SearchBar = ({ value, onChange, placeholder }) => (
     </div>
 );
 
-const JobForm = ({ initialData, onClose, onSave }) => {
-    const [formData, setFormData] = useState(initialData || { title: '', department: '', status: 'Open' });
-    return (
-        <div className="p-8 space-y-4">
-            <h2 className="text-xl font-bold">{initialData ? 'Edit Job' : 'New Job'}</h2>
-            <input className="w-full border p-2 rounded" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="Title" />
-            <div className="flex gap-2">
-                <button onClick={onClose} className="flex-1 p-2 bg-slate-100 rounded">Cancel</button>
-                <button onClick={() => onSave(formData)} className="flex-1 p-2 bg-emerald-500 text-white rounded">Save</button>
-            </div>
-        </div>
-    );
-};
 
 export default AdminPortal;

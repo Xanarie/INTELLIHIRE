@@ -1,118 +1,195 @@
-import React from 'react';
-import { Edit3, Trash2, Briefcase, Users, Power, PowerOff } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Plus, Users, MoreVertical } from 'lucide-react';
 
-const JobTab = ({ jobs, onEdit, onDelete, onStatusToggle }) => {
-    
-    // Internal helper to calculate tab-specific metrics
-    const stats = {
-        total: jobs.length,
-        open: jobs.filter(j => j.status === 'Open').length,
-        applicants: jobs.reduce((sum, j) => sum + (Number(j.applicants) || 0), 0)
+const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate }) => {
+    const [activeView, setActiveView] = useState('status');
+
+    const getApplicantCount = (jobTitle) => {
+        return applicants.filter(app => 
+            app.applied_position?.toLowerCase() === jobTitle?.toLowerCase()
+        ).length;
     };
 
+    const groupedJobs = useMemo(() => {
+        const groups = { Draft: [], Open: [], Closed: [] };
+        jobs.forEach(job => {
+            const status = job.status || 'Draft';
+            if (groups[status]) groups[status].push(job);
+        });
+        return groups;
+    }, [jobs]);
+
     return (
-        <div className="space-y-6">
-            {/* 1. MINI STATS BAR - Gives context to the current list */}
-            <div className="grid grid-cols-3 gap-4">
-                <div className="bg-white p-4 rounded-2xl border border-slate-100 flex items-center gap-4">
-                    <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
-                        <Briefcase size={20} />
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Roles</p>
-                        <p className="text-lg font-black text-slate-800">{stats.total}</p>
-                    </div>
-                </div>
-                <div className="bg-white p-4 rounded-2xl border border-slate-100 flex items-center gap-4">
-                    <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-                        <Power size={20} />
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active</p>
-                        <p className="text-lg font-black text-slate-800">{stats.open}</p>
-                    </div>
-                </div>
-                <div className="bg-white p-4 rounded-2xl border border-slate-100 flex items-center gap-4">
-                    <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center">
-                        <Users size={20} />
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Pool</p>
-                        <p className="text-lg font-black text-slate-800">{stats.applicants}</p>
-                    </div>
-                </div>
+        <div className="space-y-6 animate-in fade-in duration-500">
+            {/* 1. TABS NAVIGATION */}
+            <div className="flex gap-8 border-b border-slate-100 mb-6">
+                {['Status', 'Department'].map((tab) => (
+                    <button
+                        key={tab}
+                        onClick={() => setActiveView(tab.toLowerCase())}
+                        className={`pb-4 text-sm font-bold transition-all relative ${
+                            activeView === tab.toLowerCase() 
+                            ? 'text-[#2A5C9A]' 
+                            : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                    >
+                        {tab}
+                        {activeView === tab.toLowerCase() && (
+                            <div className="absolute bottom-0 left-0 w-full h-1 bg-[#2A5C9A] rounded-t-full" />
+                        )}
+                    </button>
+                ))}
             </div>
 
-            {/* 2. MAIN TABLE */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                <table className="w-full text-left border-collapse">
-                    <thead className="bg-slate-50/50 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                        <tr>
-                            <th className="px-8 py-5">Job Title</th>
-                            <th className="px-8 py-5">Department</th>
-                            <th className="px-8 py-5">Status</th>
-                            <th className="px-8 py-5">Applicants</th>
-                            <th className="px-8 py-5 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                        {jobs.map((job) => (
-                            <tr key={job.id} className={`hover:bg-slate-50/80 transition-colors group ${job.status === 'Closed' ? 'opacity-60' : ''}`}>
-                                <td className="px-8 py-5">
-                                    <div className="text-sm font-bold text-slate-700">{job.title}</div>
-                                    <div className="text-[10px] text-slate-400 font-medium">ID: #{job.id}</div>
-                                </td>
-                                <td className="px-8 py-5 text-sm text-slate-500 font-medium">{job.department}</td>
-                                <td className="px-8 py-5">
+            {activeView === 'status' ? (
+                /* --- STATUS VIEW (CARD BOARD) --- */
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    {['Draft', 'Open', 'Closed'].map((status) => (
+                        <div key={status} className="flex flex-col gap-4">
+                            <h3 className="text-center font-black text-[#2A5C9A] text-lg uppercase tracking-widest mb-2">
+                                {status}
+                            </h3>
+                            
+                            <div className="space-y-4 p-2 min-h-[500px]">
+                                {status === 'Draft' && (
                                     <button 
-                                        onClick={() => onStatusToggle && onStatusToggle(job)}
-                                        className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase transition-all flex items-center gap-1.5 ${
-                                            job.status === 'Open' 
-                                            ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' 
-                                            : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
-                                        }`}
+                                        onClick={() => onEdit(null)}
+                                        className="w-full h-32 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-[#2A5C9A] hover:text-[#2A5C9A] transition-all bg-white group"
                                     >
-                                        <div className={`w-1 h-1 rounded-full ${job.status === 'Open' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                                        {job.status}
+                                        <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-[#2A5C9A] group-hover:text-white transition-all">
+                                            <Plus size={20} />
+                                        </div>
+                                        <span className="text-[10px] font-black uppercase tracking-tighter">Create New Job</span>
                                     </button>
-                                </td>
-                                <td className="px-8 py-5">
-                                    <span className="text-sm font-bold text-slate-600 bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
-                                        {job.applicants} Applied
-                                    </span>
-                                </td>
-                                <td className="px-8 py-5 text-right">
-                                    <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button 
-                                            onClick={() => onEdit(job)} 
-                                            title="Edit Position"
-                                            className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-all"
+                                )}
+
+                                {groupedJobs[status].map((job) => {
+                                    const count = getApplicantCount(job.title);
+                                    const limit = job.applicant_limit || 50;
+                                    const isFull = count >= limit;
+
+                                    return (
+                                        <div 
+                                            key={job.id}
+                                            className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group relative border-l-4 border-l-[#2A5C9A]"
                                         >
-                                            <Edit3 size={16} />
-                                        </button>
-                                        <button 
-                                            onClick={() => onDelete(job.id)} 
-                                            title="Delete Position"
-                                            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                </td>
+                                            <div className="flex justify-between items-start mb-4">
+                                                <h4 className="font-bold text-[#2A5C9A] text-sm leading-tight pr-4">
+                                                    {job.title}
+                                                </h4>
+                                                <button 
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation(); 
+                                                        onEdit(job);        
+                                                    }}
+                                                    className="p-2 -mr-2 text-slate-300 hover:text-[#2A5C9A] hover:bg-slate-50 rounded-full transition-all cursor-pointer relative z-10"
+                                                >
+                                                    <MoreVertical size={16} />
+                                                </button>
+                                            </div>
+                                            
+                                            {/* Applicant Count & Limit Display */}
+                                            <div className="flex flex-col w-full gap-2">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <Users size={14} className="text-[#2A5C9A]" />
+                                                        <span className="text-xs font-black text-slate-600">
+                                                            {count}
+                                                            <span className="text-slate-300 font-medium ml-1">/ {limit}</span>
+                                                        </span>
+                                                    </div>
+                                                    {isFull && (
+                                                        <span className="text-[9px] font-black text-red-500 uppercase tracking-tighter bg-red-50 px-2 py-0.5 rounded-full">Full</span>
+                                                    )}
+                                                </div>
+                                                
+                                                {/* Visual Progress Bar */}
+                                                <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                                    <div 
+                                                        className={`h-full transition-all duration-500 ${isFull ? 'bg-red-400' : 'bg-[#10B981]'}`}
+                                                        style={{ width: `${Math.min((count / limit) * 100, 100)}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {status === 'Draft' && (
+                                                <p className="mt-4 text-[10px] text-slate-300 italic font-medium">Pending Approval</p>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                /* --- DEPARTMENT VIEW (TABLE) --- */
+                <div className="bg-white rounded-[2rem] border-2 border-[#2A5C9A]/10 shadow-xl overflow-hidden">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-[#E8F0F8] text-[#2A5C9A] text-[10px] font-black uppercase tracking-widest">
+                                <th className="px-8 py-5 border-r border-[#2A5C9A]/5">Job Title</th>
+                                <th className="px-8 py-5 border-r border-[#2A5C9A]/5">Department</th>
+                                <th className="px-8 py-5 border-r border-[#2A5C9A]/5">Status</th>
+                                <th className="px-8 py-5 border-r border-[#2A5C9A]/5">Applicants / Limit</th>
+                                <th className="px-8 py-5">Date Posted</th>
                             </tr>
-                        ))}
-                        {jobs.length === 0 && (
-                            <tr>
-                                <td colSpan="5" className="px-8 py-20 text-center text-slate-400 text-sm italic">
-                                    No job positions match your current search.
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {jobs.map((job) => {
+                                const count = getApplicantCount(job.title);
+                                const limit = job.applicant_limit || 50;
+
+                                return (
+                                    <tr 
+                                        key={job.id} 
+                                        className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
+                                        onClick={() => onEdit(job)}
+                                    >
+                                        <td className="px-8 py-5">
+                                            <span className="font-bold text-slate-700 text-sm group-hover:text-[#2A5C9A] transition-colors">
+                                                {job.title}
+                                            </span>
+                                        </td>
+                                        <td className="px-8 py-5">
+                                            <span className="bg-slate-100 text-slate-500 text-[10px] font-black px-3 py-1 rounded-full uppercase">
+                                                {job.department}
+                                            </span>
+                                        </td>
+                                        <td className="px-8 py-5">
+                                            <div className="flex items-center gap-2">
+                                                <div className={`w-2 h-2 rounded-full ${
+                                                    job.status === 'Open' ? 'bg-emerald-500' : 
+                                                    job.status === 'Closed' ? 'bg-red-500' : 'bg-amber-500'
+                                                }`} />
+                                                <span className="text-slate-500 text-sm font-medium">{job.status}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-5">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`font-black text-sm ${count >= limit ? 'text-red-500' : 'text-slate-700'}`}>
+                                                    {count}
+                                                </span>
+                                                <span className="text-slate-300">/</span>
+                                                <span className="text-slate-400 text-xs font-bold">
+                                                    {limit}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-5 text-slate-400 text-sm">
+                                            {job.created_at ? new Date(job.created_at).toLocaleDateString() : '01/10/26'}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>  
+            )}
         </div>
     );
 };
 
-export default JobTab;  
+export default JobTab;
