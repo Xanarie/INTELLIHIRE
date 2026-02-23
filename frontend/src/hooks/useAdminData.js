@@ -6,43 +6,55 @@ const API_BASE_URL = "http://localhost:8000/api/admin";
 export const useAdminData = () => {
     const [applicants, setApplicants] = useState([]);
     const [jobs, setJobs] = useState([]);
-    const [employees, setEmployees] = useState([]); // Added state
+    const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const fetchData = async () => {
-    try {
-        setLoading(true);
-        // We fetch Applicants and Jobs first as we know they work
-        const [appRes, jobRes] = await Promise.all([
-            axios.get(`${API_BASE_URL}/applicants`),
-            axios.get(`${API_BASE_URL}/jobs`),
-        ]);
-        setApplicants(appRes.data);
-        setJobs(jobRes.data);
         try {
-            const empRes = await axios.get(`${API_BASE_URL}/employees`);
-            setEmployees(empRes.data);
-        } catch (empErr) {
-            console.warn("Employees endpoint failed, but Applicants are preserved.");
-            // Optional: setEmployees([]) to ensure it's at least an empty array
+            setLoading(true);
+            const [appRes, jobRes] = await Promise.all([
+                axios.get(`${API_BASE_URL}/applicants`),
+                axios.get(`${API_BASE_URL}/jobs`),
+            ]);
+            setApplicants(appRes.data);
+            setJobs(jobRes.data);
+            
+            try {
+                const empRes = await axios.get(`${API_BASE_URL}/employees`);
+                setEmployees(empRes.data);
+            } catch (empErr) {
+                console.warn("Employees endpoint failed.");
+                setEmployees([]);
+            }
+        } catch (err) {
+            console.error("Critical data fetch failed", err);
+        } finally {
+            setLoading(false);
         }
+    };
 
-    } catch (err) {
-        console.error("Critical data fetch failed", err);
-    } finally {
-        setLoading(false);
-    }
-};
-
-    const handleSaveJob = async (jobData, editingId) => {
+    const handleSaveJob = async (updatedData, jobId) => {
         try {
-            if (editingId) await axios.put(`${API_BASE_URL}/jobs/${editingId}`, jobData);
-            else await axios.post(`${API_BASE_URL}/jobs`, jobData);
-            await fetchData(); 
+            if (jobId) {
+                // UPDATE existing job via Axios
+                await axios.put(`${API_BASE_URL}/jobs/${jobId}`, {
+                    title: updatedData.title,
+                    department: updatedData.department,
+                    status: updatedData.status,
+                    applicant_limit: parseInt(updatedData.applicant_limit, 10) || 50
+                });
+            } else {
+                // CREATE new job via Axios
+                await axios.post(`${API_BASE_URL}/jobs`, {
+                    ...updatedData,
+                    applicant_limit: parseInt(updatedData.applicant_limit, 10) || 50
+                });
+            }
+            await fetchData(); // Refresh list after saving
             return true;
-        } catch (err) { 
-            console.error("Save failed", err);
-            return false; 
+        } catch (err) {
+            console.error("Save job failed", err);
+            return false;
         }
     };
 
@@ -63,19 +75,14 @@ export const useAdminData = () => {
     };
 
     const handleSaveEmployee = async (employeeData) => {
-    try {
-        const newEntry = { ...employeeData, id: Date.now() };
-        
-        setEmployees(prev => [...prev, newEntry]);
-
-        await axios.post(`${API_BASE_URL}/employees`, employeeData);
-        
-        await fetchData(); 
-        return true;
-    } catch (error) {
-        console.error("Failed to save employee to database:", error);
-        return false;
-    }
+        try {
+            await axios.post(`${API_BASE_URL}/employees`, employeeData);
+            await fetchData(); 
+            return true;
+        } catch (error) {
+            console.error("Failed to save employee:", error);
+            return false;
+        }
     };
 
     useEffect(() => { fetchData(); }, []);
@@ -83,10 +90,10 @@ export const useAdminData = () => {
     return { 
         applicants, 
         jobs, 
-        employees, // Added to return
+        employees, 
         loading, 
         handleSaveJob, 
-        handleSaveEmployee, // Added to return
+        handleSaveEmployee, 
         handleDeleteJob, 
         handleDeleteApplicant, 
         refresh: fetchData 

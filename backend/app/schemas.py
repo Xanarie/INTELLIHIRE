@@ -42,3 +42,7 @@ class JobCreate(BaseModel):
     title: str
     department: str
     status: str = "Open"
+    applicant_limit: int = 50
+
+    class Config:
+        from_attributes = True

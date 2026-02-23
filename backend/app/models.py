@@ -64,6 +64,7 @@ class Job(Base):
     department = Column(String(255), nullable=False)
     status = Column(String(50), default="Open")
     created_at = Column(DateTime, default=datetime.utcnow)
+    applicant_limit = Column(Integer, default=50)
 
 
 class JobPost(Base):

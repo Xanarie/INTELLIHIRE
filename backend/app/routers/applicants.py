@@ -39,6 +39,19 @@ async def create_applicant(
     resume: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
+
+    # Check job applicant limit
+    job = db.query(Job).filter(Job.title == applied_position).first()
+    
+    if job:
+        current_count = db.query(Applicant).filter(
+            Applicant.applied_position == applied_position
+        ).count()
+        
+        if current_count >= job.applicant_limit:
+            job.status = "Closed"  
+            db.commit()
+
     # Email duplication check
     if db.query(Applicant).filter(Applicant.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
