@@ -4,21 +4,23 @@ import shutil
 from fastapi import APIRouter, Depends, HTTPException, Form, File, UploadFile
 from sqlalchemy.orm import Session
 from typing import Optional, List
+
 from app.database import get_db
-from ..models import Applicant, Job
+from app.models import Applicant, Job
 from app.schemas import ApplicantStatusUpdate, UserResponse
 from app.ai.matching import score_applicant
 from app.ai.summarizer import summarize_prescreen
-from app.ai.pdf_extract import extract_resume_text  # NEW: use actual public function from pdf_extract.py
-from app.ai.resume_score import score_resume_quality  # NEW
+from app.ai.pdf_extract import extract_resume_text
+from app.ai.resume_score import score_resume_quality
 
 router = APIRouter(
     prefix="/api/applicants",
-    tags=["Applicant Hub"]
+    tags=["Applicant Hub"],
 )
 
 UPLOAD_DIR = "resumes"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
 
 @router.post("/", response_model=UserResponse)
 async def create_applicant(
@@ -37,34 +39,32 @@ async def create_applicant(
     applied_position: str = Form(...),
     isp: Optional[str] = Form(None),
     resume: UploadFile = File(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-
-    # Check job applicant limit
+    # 1) Fetch job once — reused for limit check AND matching
     job = db.query(Job).filter(Job.title == applied_position).first()
-    
+
+    # 2) Check applicant limit
     if job:
         current_count = db.query(Applicant).filter(
             Applicant.applied_position == applied_position
         ).count()
-        
         if current_count >= job.applicant_limit:
-            job.status = "Closed"  
+            job.status = "Closed"
             db.commit()
 
-    # Email duplication check
+    # 3) Email duplicate check
     if db.query(Applicant).filter(Applicant.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    # Resume upload
-    file_ext = resume.filename.split(".")[-1]
+    # 4) Save resume file
+    file_ext = resume.filename.split(".")[-1].lower()
     resume_filename = f"{uuid.uuid4()}.{file_ext}"
     file_path = os.path.join(UPLOAD_DIR, resume_filename)
-
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(resume.file, buffer)
 
-    # Create applicant record
+    # 5) Create applicant record
     new_user = Applicant(
         f_name=f_name,
         l_name=l_name,
@@ -80,83 +80,79 @@ async def create_applicant(
         stable_internet=stable_internet,
         isp=isp,
         applied_position=applied_position,
-        resume_path=file_path
+        resume_path=file_path,
     )
-
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
 
-    # -----------------------------
-    # AI: RESUME EXTRACT + RESUME SCORE + PRESCREEN SUMMARY
-    # -----------------------------
+    # ── AI Pipeline ────────────────────────────────────────────────────────
+    # Step A: Extract resume text (once, shared by all steps below)
+    # Step B: Resume quality score  (no job needed)
+    # Step C: Job match score       (uses full_job_text from all 4 sections)
+    # Step D: Prescreen summary
+    # ───────────────────────────────────────────────────────────────────────
 
-    # 1) Extract resume text once (focus_text is what we use)  # NEW
-    try:  # NEW
-        extracted = extract_resume_text(file_path)  # NEW
-        resume_focus_text = (extracted.get("focus_text") or "").strip()  # NEW
-    except Exception as e:  # NEW
-        print("PDF extract failed:", e)  # NEW
-        resume_focus_text = ""  # NEW
+    # Step A
+    resume_focus_text = ""
+    try:
+        extracted = extract_resume_text(file_path)
+        resume_focus_text = (extracted.get("focus_text") or "").strip()
+    except Exception as e:
+        print(f"[AI] PDF extract failed for applicant {new_user.id}: {e}")
 
-    # 2) Resume-only score (does NOT need job description)  # NEW
-    if resume_focus_text:  # NEW
-        try:  # NEW
-            resume_score = score_resume_quality(resume_focus_text)  # NEW
+    if not resume_focus_text:
+        db.refresh(new_user)
+        return new_user
 
-            # Save resume scoring fields (make sure these columns exist in Applicant model/DB)  # NEW
-            new_user.ai_resume_score = float(resume_score.get("score", 0.0))  # NEW
-            new_user.ai_resume_bucket = str(resume_score.get("bucket", "Needs Review"))  # NEW
-            new_user.ai_resume_score_json = resume_score  # NEW
+    # Step B: Resume quality score
+    try:
+        resume_score = score_resume_quality(resume_focus_text)
+        new_user.ai_resume_score = float(resume_score.get("score", 0.0))
+        new_user.ai_resume_bucket = str(resume_score.get("bucket", "Weak"))
+        new_user.ai_resume_score_json = resume_score
+    except Exception as e:
+        print(f"[AI] Resume scoring failed for applicant {new_user.id}: {e}")
 
-            db.commit()  # NEW
-            db.refresh(new_user)  # NEW
-        except Exception as e:  # NEW
-            print("Resume scoring failed:", e)  # NEW
-
-    # 3) Job lookup (optional — matching only runs if description exists)  # NEW
-    job = db.query(Job).filter(Job.title == applied_position).first()  # NEW
-
-    # 4) Build match_result:
-    #    - if job description exists -> real job compatibility score
-    #    - else -> fallback so prescreen summary still works  # NEW
-    match_result = {  # NEW
-        "score": float(getattr(new_user, "ai_resume_score", 0.0) or 0.0),  # NEW: fallback uses resume score
-        "bucket": str(getattr(new_user, "ai_resume_bucket", "Needs Review") or "Needs Review"),  # NEW
-        "knockout": False,  # NEW
-        "breakdown": {"semantic_similarity": 0.0},  # NEW
-        "must_haves": {"matched": [], "missing": []},  # NEW
-        "mode": "resume_only",  # NEW
-    }
-
-    if resume_focus_text and job and getattr(job, "description", None):  # NEW
-        try:  # NEW
-            match_result = score_applicant(resume_focus_text, job.description)  # NEW
-            match_result["mode"] = "job_match"  # NEW
-        except Exception as e:  # NEW
-            print("Job matching failed:", e)  # NEW
-
-    # 5) Prescreen summary (works with fallback match_result)  # NEW
-    if resume_focus_text:  # NEW
-        try:  # NEW
-            prescreen_result = summarize_prescreen(  # NEW
-                resume_focus_text=resume_focus_text,  # NEW
-                job_title=applied_position,  # NEW
-                match_result=match_result,  # NEW
+    # Step C: Job match (uses the combined full_job_text from all 4 sections)
+    job_match_result = None
+    if job and job.has_description:
+        try:
+            job_match_result = score_applicant(
+                candidate_text=resume_focus_text,
+                job_text=job.full_job_text,
             )
+            new_user.ai_job_match_score = float(job_match_result.get("score", 0.0))
+            new_user.ai_job_match_bucket = str(job_match_result.get("bucket", "Needs Review"))
+            new_user.ai_job_match_json = job_match_result
+        except Exception as e:
+            print(f"[AI] Job matching failed for applicant {new_user.id}: {e}")
 
-            new_user.ai_prescreening_summary = prescreen_result.get("summary", "")  # NEW
-            new_user.ai_match_json = match_result  # NEW
+    # Step D: Prescreen summary
+    summary_input = job_match_result or {
+        "score": new_user.ai_resume_score or 0.0,
+        "bucket": new_user.ai_resume_bucket or "Weak",
+        "knockout": False,
+        "breakdown": {},
+        "must_haves": {"matched": [], "missing": []},
+        "mode": "resume_only",
+    }
+    try:
+        prescreen_result = summarize_prescreen(
+            resume_focus_text=resume_focus_text,
+            job_title=applied_position,
+            match_result=summary_input,
+        )
+        new_user.ai_prescreening_summary = prescreen_result.get("summary", "")
+    except Exception as e:
+        print(f"[AI] Prescreen summary failed for applicant {new_user.id}: {e}")
 
-            db.commit()  # NEW
-            db.refresh(new_user)  # NEW
-        except Exception as e:  # NEW
-            print("Prescreen summarizer failed:", e)  # NEW
-
+    db.commit()
+    db.refresh(new_user)
     return new_user
 
 
-# --- ADMIN-SIDE UPDATES (STILL IN THIS ROUTER FOR NOW) ---
+# ── Admin endpoints ────────────────────────────────────────────────────────────
 
 @router.get("/all", response_model=List[UserResponse])
 async def get_all_applicants(db: Session = Depends(get_db)):
@@ -167,12 +163,11 @@ async def get_all_applicants(db: Session = Depends(get_db)):
 def update_applicant_status(
     applicant_id: int,
     payload: ApplicantStatusUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     applicant = db.query(Applicant).filter(Applicant.id == applicant_id).first()
     if not applicant:
         raise HTTPException(status_code=404, detail="Applicant not found")
-
     applicant.hiring_status = payload.hiring_status
     db.commit()
     db.refresh(applicant)
@@ -181,5 +176,4 @@ def update_applicant_status(
 
 @router.get("/jobs")
 def get_public_jobs(db: Session = Depends(get_db)):
-    # This filter is the key!
     return db.query(Job).filter(Job.status == "Open").all()

@@ -6,32 +6,28 @@ const API_BASE_URL = "http://localhost:8000/api/admin";
 const extractErrMessage = (err, fallback) => {
   const status = err?.response?.status;
   const data = err?.response?.data;
-
   const message =
     (typeof data === 'string' && data) ||
     data?.detail ||
     data?.message ||
     err?.message ||
     fallback;
-
   return { status, data, message };
 };
 
 export const useAdminData = () => {
   const [applicants, setApplicants] = useState([]);
-  const [jobs, setJobs] = useState([]);
-  const [employees, setEmployees] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [jobs, setJobs]             = useState([]);
+  const [employees, setEmployees]   = useState([]);
+  const [loading, setLoading]       = useState(true);
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-
       const [appRes, jobRes] = await Promise.all([
         axios.get(`${API_BASE_URL}/applicants`),
         axios.get(`${API_BASE_URL}/jobs`),
       ]);
-
       setApplicants(appRes.data || []);
       setJobs(jobRes.data || []);
 
@@ -49,35 +45,33 @@ export const useAdminData = () => {
     }
   }, []);
 
-  // Returns { ok, message, job? } and updates jobs state immediately (no refetch required)
+  // Returns { ok, message, job? }
   const handleSaveJob = useCallback(async (updatedData, jobId) => {
     try {
+      // Build payload with the 4 structured description fields
       const payload = {
-        title: (updatedData.title ?? '').toString(),
-        department: (updatedData.department ?? 'IT').toString(),
-        status: (updatedData.status ?? 'Draft').toString(),
-        applicant_limit: Number.isFinite(Number(updatedData.applicant_limit))
-          ? Number(updatedData.applicant_limit)
-          : 50,
-        job_description: (updatedData.job_description ?? '').toString(), // NEW
+        title:                    (updatedData.title ?? '').toString(),
+        department:               (updatedData.department ?? 'IT').toString(),
+        status:                   (updatedData.status ?? 'Draft').toString(),
+        applicant_limit:          Number.isFinite(Number(updatedData.applicant_limit))
+                                    ? Number(updatedData.applicant_limit)
+                                    : 50,
+        key_responsibilities:     (updatedData.key_responsibilities ?? '').toString(),
+        required_qualifications:  (updatedData.required_qualifications ?? '').toString(),
+        preferred_qualifications: (updatedData.preferred_qualifications ?? '').toString(),
+        key_competencies:         (updatedData.key_competencies ?? '').toString(),
       };
 
       let res;
       if (jobId) {
         res = await axios.put(`${API_BASE_URL}/jobs/${jobId}`, payload);
         const saved = res.data;
-
-        setJobs(prev =>
-          prev.map(j => (j.id === jobId ? { ...j, ...saved } : j))
-        );
-
+        setJobs(prev => prev.map(j => (j.id === jobId ? { ...j, ...saved } : j)));
         return { ok: true, message: "Job updated successfully.", job: saved };
       } else {
         res = await axios.post(`${API_BASE_URL}/jobs`, payload);
         const saved = res.data;
-
         setJobs(prev => [saved, ...prev]);
-
         return { ok: true, message: "Job created successfully.", job: saved };
       }
     } catch (err) {
@@ -90,7 +84,6 @@ export const useAdminData = () => {
   // Returns { ok, message }
   const handleDeleteJob = useCallback(async (id) => {
     if (!window.confirm("Delete permanently?")) return { ok: false, message: "Cancelled." };
-
     try {
       await axios.delete(`${API_BASE_URL}/jobs/${id}`);
       setJobs(prev => prev.filter(j => j.id !== id));
@@ -105,7 +98,6 @@ export const useAdminData = () => {
   // Returns { ok, message }
   const handleDeleteApplicant = useCallback(async (id) => {
     if (!window.confirm("Delete applicant?")) return { ok: false, message: "Cancelled." };
-
     try {
       await axios.delete(`${API_BASE_URL}/applicants/${id}`);
       setApplicants(prev => prev.filter(a => (a.id ?? a.applicantid) !== id));
@@ -122,10 +114,7 @@ export const useAdminData = () => {
     try {
       const res = await axios.post(`${API_BASE_URL}/employees`, employeeData);
       const saved = res.data;
-
-      // optimistic update; you can refetch instead if you prefer
       setEmployees(prev => [saved, ...prev]);
-
       return { ok: true, message: "Employee saved successfully.", employee: saved };
     } catch (err) {
       const { status, data, message } = extractErrMessage(err, "Failed to save employee.");

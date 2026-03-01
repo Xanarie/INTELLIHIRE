@@ -10,9 +10,14 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate }
     ).length;
   };
 
+  // Check any of the 4 structured description fields
   const hasJobDescription = (job) => {
-    const jd = job?.job_description;
-    return typeof jd === 'string' && jd.trim().length > 0;
+    return (
+      (typeof job?.key_responsibilities === 'string' && job.key_responsibilities.trim().length > 0) ||
+      (typeof job?.required_qualifications === 'string' && job.required_qualifications.trim().length > 0) ||
+      (typeof job?.preferred_qualifications === 'string' && job.preferred_qualifications.trim().length > 0) ||
+      (typeof job?.key_competencies === 'string' && job.key_competencies.trim().length > 0)
+    );
   };
 
   const groupedJobs = useMemo(() => {
@@ -26,7 +31,7 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      {/* 1. TABS NAVIGATION */}
+      {/* TABS NAVIGATION */}
       <div className="flex gap-8 border-b border-slate-100 mb-6">
         {['Status', 'Department'].map((tab) => (
           <button
@@ -47,7 +52,7 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate }
       </div>
 
       {activeView === 'status' ? (
-        /* --- STATUS VIEW (CARD BOARD) --- */
+        /* STATUS VIEW — CARD BOARD */
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {['Draft', 'Open', 'Closed'].map((status) => (
             <div key={status} className="flex flex-col gap-4">
@@ -86,15 +91,13 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate }
                           <h4 className="font-bold text-[#2A5C9A] text-sm leading-tight">
                             {job.title}
                           </h4>
-
                           {!jdAdded && (
-                            <span className="mt-0.5 inline-flex items-center gap-1 text-[9px] font-black text-amber-600 uppercase tracking-tighter bg-amber-50 px-2 py-0.5 rounded-full">
-                              <FileText size={12} />
+                            <span className="mt-0.5 inline-flex items-center gap-1 text-[9px] font-black text-amber-600 uppercase tracking-tighter bg-amber-50 px-2 py-0.5 rounded-full shrink-0">
+                              <FileText size={10} />
                               JD Missing
                             </span>
                           )}
                         </div>
-
                         <button
                           type="button"
                           onClick={(e) => {
@@ -108,16 +111,13 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate }
                         </button>
                       </div>
 
-                      {/* Applicant Count & Limit Display */}
                       <div className="flex flex-col w-full gap-2">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5">
                             <Users size={14} className="text-[#2A5C9A]" />
                             <span className="text-xs font-black text-slate-600">
                               {count}
-                              <span className="text-slate-300 font-medium ml-1">
-                                / {limit}
-                              </span>
+                              <span className="text-slate-300 font-medium ml-1">/ {limit}</span>
                             </span>
                           </div>
                           {isFull && (
@@ -126,16 +126,10 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate }
                             </span>
                           )}
                         </div>
-
-                        {/* Visual Progress Bar */}
                         <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
                           <div
-                            className={`h-full transition-all duration-500 ${
-                              isFull ? 'bg-red-400' : 'bg-[#10B981]'
-                            }`}
-                            style={{
-                              width: `${Math.min((count / limit) * 100, 100)}%`,
-                            }}
+                            className={`h-full transition-all duration-500 ${isFull ? 'bg-red-400' : 'bg-[#10B981]'}`}
+                            style={{ width: `${Math.min((count / limit) * 100, 100)}%` }}
                           />
                         </div>
                       </div>
@@ -153,7 +147,7 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate }
           ))}
         </div>
       ) : (
-        /* --- DEPARTMENT VIEW (TABLE) --- */
+        /* DEPARTMENT VIEW — TABLE */
         <div className="bg-white rounded-[2rem] border-2 border-[#2A5C9A]/10 shadow-xl overflow-hidden">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -190,27 +184,17 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate }
                     </td>
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-2">
-                        <div
-                          className={`w-2 h-2 rounded-full ${
-                            job.status === 'Open'
-                              ? 'bg-emerald-500'
-                              : job.status === 'Closed'
-                              ? 'bg-red-500'
-                              : 'bg-amber-500'
-                          }`}
-                        />
-                        <span className="text-slate-500 text-sm font-medium">
-                          {job.status}
-                        </span>
+                        <div className={`w-2 h-2 rounded-full ${
+                          job.status === 'Open' ? 'bg-emerald-500'
+                          : job.status === 'Closed' ? 'bg-red-500'
+                          : 'bg-amber-500'
+                        }`} />
+                        <span className="text-slate-500 text-sm font-medium">{job.status}</span>
                       </div>
                     </td>
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-2">
-                        <span
-                          className={`font-black text-sm ${
-                            count >= limit ? 'text-red-500' : 'text-slate-700'
-                          }`}
-                        >
+                        <span className={`font-black text-sm ${count >= limit ? 'text-red-500' : 'text-slate-700'}`}>
                           {count}
                         </span>
                         <span className="text-slate-300">/</span>
@@ -229,7 +213,7 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate }
                       )}
                     </td>
                     <td className="px-8 py-5 text-slate-400 text-sm">
-                      {job.created_at ? new Date(job.created_at).toLocaleDateString() : '01/10/26'}
+                      {job.created_at ? new Date(job.created_at).toLocaleDateString() : '—'}
                     </td>
                   </tr>
                 );

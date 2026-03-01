@@ -12,7 +12,7 @@ app.include_router(ai_router, prefix="/ai", tags=["AI"])
 app.include_router(applicants.router)
 app.include_router(admin.router)
 
-# Create tables (thesis/dev only; later replace with Alembic migrations)
+# Create any new tables automatically (dev only — use Alembic in production)
 Base.metadata.create_all(bind=engine)
 
 app.add_middleware(
