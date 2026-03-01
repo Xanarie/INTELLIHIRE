@@ -4,7 +4,7 @@ import shutil
 from fastapi import APIRouter, Depends, HTTPException, Form, File, UploadFile
 from sqlalchemy.orm import Session
 from typing import Optional, List
-from ..database import get_db
+from app.database import get_db
 from ..models import Applicant, Job
 from app.schemas import ApplicantStatusUpdate, UserResponse
 from app.ai.matching import score_applicant

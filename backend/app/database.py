@@ -1,18 +1,20 @@
+import os
+
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
+# Load backend/.env (works when you run from the backend folder)
+load_dotenv()
 
-DB_USER = "root"
-DB_PASSWORD = "databaseserver"
-DB_HOST = "localhost"
-DB_NAME = "applicant_db"
-
-# Connection URL
-# DATABASE_URL = f"mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
-DATABASE_URL = "mysql+mysqlconnector://intellihire_user:StrongPassword123@localhost:3306/intellihire"
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL is not set. Add it to backend/.env (and ensure python-dotenv is installed)."
+    )
 
 # SQLAlchemy engine
-engine = create_engine(DATABASE_URL, echo=True)  # echo=True for logging queries
+engine = create_engine(DATABASE_URL, echo=True)
 
 # Session maker
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

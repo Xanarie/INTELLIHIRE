@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from sqlalchemy import desc
-from ..database import get_db
+from app.database import get_db
 from ..models import Applicant, ApplicantStatus , Job , Employee
 from app.schemas import UserResponse, ApplicantStatusResponse, UserUpdate, JobCreate, StatusUpdate
 
