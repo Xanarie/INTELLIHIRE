@@ -1,7 +1,9 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey , Text
+from datetime import datetime
+
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
 from sqlalchemy.dialects.mysql import JSON
 from sqlalchemy.orm import relationship
-from datetime import datetime
+
 from .database import Base
 
 
@@ -26,8 +28,8 @@ class Applicant(Base):
     resume_path = Column(String(255))
     hiring_status = Column(String(50), default="Pre-screening")
 
-    ai_prescreening_summary = Column(Text, nullable=True)   # recruiter-readable summary text
-    ai_match_json = Column(JSON, nullable=True)          # store full match result
+    ai_prescreening_summary = Column(Text, nullable=True)  # recruiter-readable summary text
+    ai_match_json = Column(JSON, nullable=True)            # store full match result
 
     statuses = relationship(
         "ApplicantStatus",
@@ -36,7 +38,7 @@ class Applicant(Base):
     )
 
 
-class ApplicantInput(Base):  
+class ApplicantInput(Base):
     __tablename__ = "applicants_input"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -54,18 +56,18 @@ class ApplicantStatus(Base):
 
     applicant = relationship("Applicant", back_populates="statuses")
 
-    from sqlalchemy import Text
 
 class Job(Base):
     __tablename__ = "jobs"
 
     id = Column(Integer, primary_key=True, index=True)
-    title = Column(String(255), nullable=False) 
+    title = Column(String(255), nullable=False)
     department = Column(String(255), nullable=False)
     status = Column(String(50), default="Open")
     created_at = Column(DateTime, default=datetime.utcnow)
     applicant_limit = Column(Integer, default=50)
 
+    job_description = Column(Text, nullable=True)  
 
 class JobPost(Base):
     __tablename__ = "job_posts"
@@ -76,6 +78,7 @@ class JobPost(Base):
     description = Column(Text)
     requirements = Column(Text)
     status = Column(String(50), default="Open", nullable=False)
+
 
 class Employee(Base):
     __tablename__ = "employees"
