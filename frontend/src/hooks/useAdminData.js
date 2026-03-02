@@ -1,3 +1,5 @@
+// frontend/src/hooks/useAdminData.js
+
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
@@ -56,6 +58,7 @@ export const useAdminData = () => {
         applicant_limit:          Number.isFinite(Number(updatedData.applicant_limit))
                                     ? Number(updatedData.applicant_limit)
                                     : 50,
+        job_summary:              (updatedData.job_summary ?? '').toString(),
         key_responsibilities:     (updatedData.key_responsibilities ?? '').toString(),
         required_qualifications:  (updatedData.required_qualifications ?? '').toString(),
         preferred_qualifications: (updatedData.preferred_qualifications ?? '').toString(),

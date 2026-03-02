@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Users, MoreVertical, FileText } from 'lucide-react';
+import { Plus, Users, FileText } from 'lucide-react';
 
 const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate }) => {
   const [activeView, setActiveView] = useState('status');
@@ -82,13 +82,14 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate }
                   const jdAdded = hasJobDescription(job);
 
                   return (
-                    <div
+                    <button
                       key={job.id}
-                      className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group relative border-l-4 border-l-[#2A5C9A]"
+                      type="button"
+                      onClick={() => onEdit(job)}
+                      className="w-full text-left bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-[#2A5C9A]/30 transition-all group relative border-l-4 border-l-[#2A5C9A] cursor-pointer"
                     >
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex items-start gap-2 pr-4">
-                          <h4 className="font-bold text-[#2A5C9A] text-sm leading-tight">
+                      <div className="flex items-start gap-2 mb-3">
+                          <h4 className="font-bold text-[#2A5C9A] text-sm leading-tight group-hover:text-[#1e4470] transition-colors">
                             {job.title}
                           </h4>
                           {!jdAdded && (
@@ -97,18 +98,6 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate }
                               JD Missing
                             </span>
                           )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onEdit(job);
-                          }}
-                          className="p-2 -mr-2 text-slate-300 hover:text-[#2A5C9A] hover:bg-slate-50 rounded-full transition-all cursor-pointer relative z-10"
-                        >
-                          <MoreVertical size={16} />
-                        </button>
                       </div>
 
                       <div className="flex flex-col w-full gap-2">
@@ -139,7 +128,7 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate }
                           Pending Approval
                         </p>
                       )}
-                    </div>
+                    </button>
                   );
                 })}
               </div>

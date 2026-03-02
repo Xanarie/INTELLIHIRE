@@ -6,7 +6,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.database import SessionLocal
+from backend.app.firebase_client import SessionLocal
 from app.models import Applicant
 
 from app.ai.pdf_extract import extract_resume_text  # uses your existing pdf_extract.py

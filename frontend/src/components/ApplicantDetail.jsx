@@ -289,7 +289,7 @@ const BreakdownModal = ({ applicant, onClose }) => {
 
 // ─── AI Match Insights (compact 4-row) ────────────────────────────────────────
 
-const AIMatchInsights = ({ applicant }) => {
+const AIMatchInsights = ({ applicant, topRole }) => {
   const [showModal, setShowModal] = useState(false);
 
   const hasResumeScore = applicant.ai_resume_score != null;
@@ -306,6 +306,13 @@ const AIMatchInsights = ({ applicant }) => {
   const expData     = getExperienceLabel(applicant.ai_resume_score_json);
   const resumeColor = getResumeColor(applicant.ai_resume_bucket);
   const matchColor  = getMatchColor(applicant.ai_job_match_bucket);
+
+  // Recommended role: highest scoring from suggestions, else applied position
+  const recommendedTitle  = topRole?.title ?? applicant.applied_position ?? "—";
+  const recommendedScore  = topRole ? Math.round(topRole.score) : null;
+  const recommendedBucket = topRole?.bucket ?? null;
+  const recColor          = recommendedBucket ? getMatchColor(recommendedBucket) : "text-slate-600";
+  const isBestFitDiff     = topRole && topRole.title !== applicant.applied_position;
 
   return (
     <>
@@ -330,12 +337,12 @@ const AIMatchInsights = ({ applicant }) => {
           />
           <InsightRow
             label="Recommended Role"
-            value={applicant.applied_position || "—"}
-            valueColor={hasJobMatch ? matchColor : "text-slate-600"}
+            value={recommendedTitle}
+            valueColor={recColor}
             subtext={
-              !hasJobMatch ? "See breakdown for all role comparisons"
-              : applicant.ai_job_match_json?.knockout ? "⚠ Failed knockout — see breakdown"
-              : "See breakdown for all role comparisons"
+              recommendedScore !== null
+                ? `${recommendedScore}% match${isBestFitDiff ? " · Better fit than applied role" : ""}`
+                : "See breakdown for all role comparisons"
             }
           />
         </div>
@@ -362,6 +369,10 @@ const ApplicantDetail = ({ applicantId, onClose, onRefresh }) => {
   const [saving, setSaving]                 = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("");
   const [rerunning, setRerunning]           = useState(false);
+  const [topRole, setTopRole]               = useState(null); // best matching role from suggestions
+  const [recruiterNotes, setRecruiterNotes] = useState("");
+  const [savingNotes, setSavingNotes]       = useState(false);
+  const [notesSaved, setNotesSaved]         = useState(false);
 
   const fetchApplicant = async () => {
     if (!applicantId) return;
@@ -370,6 +381,22 @@ const ApplicantDetail = ({ applicantId, onClose, onRefresh }) => {
       const res = await axios.get(`${API_BASE_URL}/applicants/${applicantId}`);
       setApplicant(res.data);
       setSelectedStatus(res.data.hiring_status || "Pre-screening");
+      setRecruiterNotes(res.data.recruiter_notes || "");
+
+      // If ai_recommended_role already stored in Firestore (new applicants), use it instantly.
+      // For older records that don't have it yet, fall back to the suggestions API.
+      const rec = res.data.ai_recommended_role;
+      if (rec) {
+        setTopRole({ title: rec, score: null, bucket: null });
+      } else {
+        // Background fallback — doesn't block the panel from rendering
+        axios.get(`${API_BASE_URL}/applicants/${applicantId}/role-suggestions`)
+          .then(r => {
+            const suggestions = r.data.suggestions || [];
+            if (suggestions.length > 0) setTopRole(suggestions[0]);
+          })
+          .catch(() => {}); // silent — not critical
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -378,6 +405,22 @@ const ApplicantDetail = ({ applicantId, onClose, onRefresh }) => {
   };
 
   useEffect(() => { fetchApplicant(); }, [applicantId]);
+
+  const handleSaveNotes = async () => {
+    try {
+      setSavingNotes(true);
+      setNotesSaved(false);
+      await axios.patch(`${API_BASE_URL}/applicants/${applicantId}/notes`, {
+        recruiter_notes: recruiterNotes,
+      });
+      setNotesSaved(true);
+      setTimeout(() => setNotesSaved(false), 2500);
+    } catch (err) {
+      console.error("Failed to save notes:", err);
+    } finally {
+      setSavingNotes(false);
+    }
+  };
 
   const handleConfirmMove = async () => {
     try {
@@ -524,7 +567,42 @@ const ApplicantDetail = ({ applicantId, onClose, onRefresh }) => {
           <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
             IntelliHire AI Match Insights
           </h3>
-          <AIMatchInsights applicant={applicant} />
+          <AIMatchInsights applicant={applicant} topRole={topRole} />
+        </div>
+
+        <Separator />
+
+        {/* Recruiter Notes */}
+        <div className="space-y-3">
+          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            Recruiter Notes
+          </h3>
+          <textarea
+            rows={5}
+            value={recruiterNotes}
+            onChange={(e) => { setRecruiterNotes(e.target.value); setNotesSaved(false); }}
+            placeholder="Add internal notes about this candidate — interview impressions, concerns, follow-ups..."
+            className="w-full bg-slate-50 border-2 border-transparent focus:border-[#2A5C9A] rounded-xl px-4 py-3 text-sm text-slate-700 placeholder:text-slate-300 outline-none resize-none transition-all leading-relaxed"
+          />
+          <button
+            onClick={handleSaveNotes}
+            disabled={savingNotes}
+            className="w-full py-3 rounded-xl bg-[#2A5C9A] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#1e4470] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {savingNotes ? (
+              <>
+                <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                </svg>
+                Saving…
+              </>
+            ) : notesSaved ? (
+              "✓ Notes Saved"
+            ) : (
+              "Save Notes"
+            )}
+          </button>
         </div>
 
       </CardContent>

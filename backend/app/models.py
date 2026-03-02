@@ -4,7 +4,7 @@ from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Tex
 from sqlalchemy.dialects.mysql import JSON
 from sqlalchemy.orm import relationship
 
-from .database import Base
+from .firebase_client import Base
 
 
 class Applicant(Base):

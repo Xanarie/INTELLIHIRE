@@ -1,3 +1,8 @@
+// frontend/src/components/AdminHub.jsx
+// Key fix: main is now overflow-hidden flex-col so it passes remaining height
+// down to tab content. Recruitment tab gets flex-1 min-h-0 so the board fills
+// the space and columns scroll independently inside it.
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAdminData } from '../hooks/useAdminData';
 import {
@@ -34,15 +39,22 @@ const AdminPortal = () => {
     refresh,
   } = adminData;
 
-  const [activeTab, setActiveTab] = useState('recruitment');
+  const [activeTab, setActiveTab] = useState(
+    () => localStorage.getItem('intellihire_active_tab') || 'recruitment'
+  );
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Persist active tab across refreshes
+  const switchTab = (tab) => {
+    localStorage.setItem('intellihire_active_tab', tab);
+    setActiveTab(tab);
+    setSearchTerm(""); // clear search when switching tabs
+  };
   const [collapsed, setCollapsed] = useState(false);
   const [selectedApplicantId, setSelectedApplicantId] = useState(null);
   const [isJobModalOpen, setIsJobModalOpen] = useState(false);
   const [editingJob, setEditingJob] = useState(null);
-
-  // Toast state (success/error)
-  const [toast, setToast] = useState(null); // { type: 'success'|'error', message: string }
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
     if (!toast) return;
@@ -50,28 +62,25 @@ const AdminPortal = () => {
     return () => clearTimeout(t);
   }, [toast]);
 
-  // --- Search Logic ---
   const filteredApplicants = useMemo(
-    () =>
-      (applicants || []).filter(app =>
-        `${app?.f_name || ''} ${app?.l_name || ''}`.toLowerCase().includes(searchTerm.toLowerCase())
-      ),
+    () => (applicants || []).filter(app =>
+      `${app?.f_name || ''} ${app?.l_name || ''}`.toLowerCase().includes(searchTerm.toLowerCase())
+    ),
     [applicants, searchTerm]
   );
 
   const filteredJobs = useMemo(
-    () =>
-      (jobs || []).filter(j =>
-        (j?.title || '').toLowerCase().includes(searchTerm.toLowerCase())
-      ),
+    () => (jobs || []).filter(j =>
+      (j?.title || '').toLowerCase().includes(searchTerm.toLowerCase())
+    ),
     [jobs, searchTerm]
   );
 
   const getStatusBadge = (status) => {
     const s = status?.toLowerCase() || '';
-    if (s.includes('hired')) return 'bg-emerald-100 text-emerald-700';
-    if (s.includes('rejected')) return 'bg-rose-100 text-rose-700';
-    if (s.includes('interview')) return 'bg-amber-100 text-amber-700';
+    if (s.includes('hired'))      return 'bg-emerald-100 text-emerald-700';
+    if (s.includes('rejected'))   return 'bg-rose-100 text-rose-700';
+    if (s.includes('interview'))  return 'bg-amber-100 text-amber-700';
     return 'bg-blue-100 text-blue-700';
   };
 
@@ -87,20 +96,14 @@ const AdminPortal = () => {
     [applicants]
   );
 
-  // Important: keep editingJob in sync with jobs state so modal updates live
   useEffect(() => {
     if (!isJobModalOpen) return;
     if (!editingJob?.id) return;
-
     const latest = jobs.find(j => j.id === editingJob.id);
     if (!latest) return;
-
     setEditingJob(prev => {
-      // avoid pointless rerenders
       if (!prev) return latest;
-      const prevStr = JSON.stringify(prev);
-      const nextStr = JSON.stringify(latest);
-      return prevStr === nextStr ? prev : latest;
+      return JSON.stringify(prev) === JSON.stringify(latest) ? prev : latest;
     });
   }, [jobs, isJobModalOpen, editingJob?.id]);
 
@@ -113,59 +116,49 @@ const AdminPortal = () => {
     setToast({ type: 'error', message: result?.message || 'Failed to update job status.' });
   };
 
-  // Wrapper for JobModal
-  // NOTE: if your JobModal currently closes itself unconditionally, it will still close on error.
-  // If you want "close only on success", change JobModal to await onSave and only close when ok===true.
   const handleSaveJobWithToast = async (payload, jobId) => {
     const result = await handleSaveJob(payload, jobId);
     if (result?.ok) {
       setToast({ type: 'success', message: result.message || 'Saved.' });
-
-      // keep modal values live after save (especially for creates)
       if (result?.job) setEditingJob(result.job);
-
       return true;
     }
-
     setToast({ type: 'error', message: result?.message || 'Save failed.' });
     return false;
   };
 
-  const handleEditJob = (job) => {
-    setEditingJob(job);
-    setIsJobModalOpen(true);
-  };
-
-  const handleCloseJobModal = () => {
-    setIsJobModalOpen(false);
-    setEditingJob(null);
-  };
+  const handleEditJob = (job) => { setEditingJob(job); setIsJobModalOpen(true); };
+  const handleCloseJobModal = () => { setIsJobModalOpen(false); setEditingJob(null); };
 
   if (loading) return <LoadingScreen />;
 
+  // Recruitment gets its own full-height layout — no page scroll, columns scroll
+  const isRecruitment = activeTab === 'recruitment';
+
   return (
     <div className="flex h-screen w-full bg-[#F3F7F6] overflow-hidden font-sans text-slate-900">
+
       {/* Sidebar */}
-      <aside
-        className={`bg-white border-r border-slate-100 p-6 flex flex-col transition-all duration-300 z-30 ${collapsed ? 'w-20' : 'w-64'}`}
-      >
+      <aside className={`bg-white border-r border-slate-100 p-6 flex flex-col transition-all duration-300 z-30 shrink-0 ${collapsed ? 'w-20' : 'w-64'}`}>
         <Brand collapsed={collapsed} toggle={() => setCollapsed(!collapsed)} />
         <nav className="flex flex-col gap-1 flex-1 mt-10">
-          <NavItem icon={LayoutDashboard} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} collapsed={collapsed} />
-          <NavItem icon={Users} label="Recruitment" active={activeTab === 'recruitment'} onClick={() => setActiveTab('recruitment')} collapsed={collapsed} />
-          <NavItem icon={Users} label="Onboarding" active={activeTab === 'onboarding'} onClick={() => setActiveTab('onboarding')} collapsed={collapsed} />
-          <NavItem icon={Users} label="Employee" active={activeTab === 'employee'} onClick={() => setActiveTab('employee')} collapsed={collapsed} />
-          <NavItem icon={Briefcase} label="Jobs" active={activeTab === 'jobs'} onClick={() => setActiveTab('jobs')} collapsed={collapsed} />
-          <NavItem icon={Sparkles} label="AI" active={activeTab === 'ai'} onClick={() => setActiveTab('ai')} collapsed={collapsed} />
+          <NavItem icon={LayoutDashboard} label="Dashboard"   active={activeTab === 'dashboard'}   onClick={() => switchTab('dashboard')}   collapsed={collapsed} />
+          <NavItem icon={Users}           label="Recruitment" active={activeTab === 'recruitment'} onClick={() => switchTab('recruitment')} collapsed={collapsed} />
+          <NavItem icon={Users}           label="Onboarding"  active={activeTab === 'onboarding'}  onClick={() => switchTab('onboarding')}  collapsed={collapsed} />
+          <NavItem icon={Users}           label="Employee"    active={activeTab === 'employee'}    onClick={() => switchTab('employee')}    collapsed={collapsed} />
+          <NavItem icon={Briefcase}       label="Jobs"        active={activeTab === 'jobs'}        onClick={() => switchTab('jobs')}        collapsed={collapsed} />
+          <NavItem icon={Sparkles}        label="AI"          active={activeTab === 'ai'}          onClick={() => switchTab('ai')}          collapsed={collapsed} />
         </nav>
         <button className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-red-500 transition-colors mt-auto">
           <LogOut size={18} /> {!collapsed && <span className="text-sm font-medium">Logout</span>}
         </button>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col p-8 overflow-y-auto">
-        <header className="flex justify-between items-center mb-8">
+      {/* Main — flex-col, overflow-hidden so height passes down cleanly */}
+      <main className={`flex-1 flex flex-col min-w-0 ${isRecruitment ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+
+        {/* Header — shrink-0 so it never gets squeezed */}
+        <header className="shrink-0 flex justify-between items-center px-8 pt-8 pb-6">
           <div>
             <h1 className="text-2xl font-black text-slate-800 capitalize tracking-tight">{activeTab}</h1>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Admin Management</p>
@@ -175,53 +168,69 @@ const AdminPortal = () => {
           </div>
         </header>
 
-        {/* Tab Switcher */}
-        {activeTab === 'dashboard' && <DashboardTab applicants={applicants} jobs={jobs} />}
+        {/* Tab content */}
 
+        {activeTab === 'dashboard' && (
+          <div className="px-8 pb-8">
+            <DashboardTab applicants={applicants} jobs={jobs} />
+          </div>
+        )}
+
+        {/* Recruitment: flex-1 min-h-0 so the board fills remaining height exactly */}
         {activeTab === 'recruitment' && (
-          <RecruitmentTab
-            applicants={filteredApplicants}
-            onSelect={setSelectedApplicantId}
-            onDelete={(e, id) => handleDeleteApplicant(id)}
-            getStatusBadge={getStatusBadge}
-            getAssessmentBadge={getAssessmentBadge}
-          />
+          <div className="flex-1 min-h-0 px-8 pb-8 flex flex-col">
+            <RecruitmentTab
+              applicants={filteredApplicants}
+              onSelect={setSelectedApplicantId}
+              onDelete={(e, id) => handleDeleteApplicant(id)}
+              getStatusBadge={getStatusBadge}
+              getAssessmentBadge={getAssessmentBadge}
+            />
+          </div>
         )}
 
         {activeTab === 'jobs' && (
-          <JobTab
-            jobs={filteredJobs}
-            applicants={applicants}
-            onEdit={handleEditJob}
-            onDelete={async (id) => {
-              const result = await handleDeleteJob(id);
-              if (result?.ok) setToast({ type: 'success', message: result.message || 'Deleted.' });
-              else if (result?.message && result.message !== 'Cancelled.') setToast({ type: 'error', message: result.message });
-            }}
-            onStatusUpdate={handleStatusUpdate}
-          />
+          <div className="px-8 pb-8">
+            <JobTab
+              jobs={filteredJobs}
+              applicants={applicants}
+              onEdit={handleEditJob}
+              onDelete={async (id) => {
+                const result = await handleDeleteJob(id);
+                if (result?.ok) setToast({ type: 'success', message: result.message || 'Deleted.' });
+                else if (result?.message && result.message !== 'Cancelled.') setToast({ type: 'error', message: result.message });
+              }}
+              onStatusUpdate={handleStatusUpdate}
+            />
+          </div>
         )}
 
         {activeTab === 'employee' && (
-          <EmployeeTab
-            employees={employees}
-            onSave={async (emp) => {
-              const result = await handleSaveEmployee(emp);
-              if (result?.ok) setToast({ type: 'success', message: result.message || 'Employee saved.' });
-              else setToast({ type: 'error', message: result?.message || 'Employee save failed.' });
-              return result?.ok === true;
-            }}
-          />
+          <div className="px-8 pb-8">
+            <EmployeeTab
+              employees={employees}
+              onSave={async (emp) => {
+                const result = await handleSaveEmployee(emp);
+                if (result?.ok) setToast({ type: 'success', message: result.message || 'Employee saved.' });
+                else setToast({ type: 'error', message: result?.message || 'Employee save failed.' });
+                return result?.ok === true;
+              }}
+            />
+          </div>
         )}
 
         {activeTab === 'onboarding' && (
-          <OnboardingTab
-            applicants={onboardingApplicants}
-            onRefresh={refresh}
-          />
+          <div className="px-8 pb-8">
+            <OnboardingTab applicants={onboardingApplicants} onRefresh={refresh} />
+          </div>
         )}
 
-        {activeTab === 'ai' && <AITab />}
+        {activeTab === 'ai' && (
+          <div className="px-8 pb-8">
+            <AITab applicants={applicants} jobs={jobs} onSelectApplicant={setSelectedApplicantId} />
+          </div>
+        )}
+
       </main>
 
       {/* Job Modal */}
@@ -232,10 +241,8 @@ const AdminPortal = () => {
         initialData={editingJob}
       />
 
-      {/* Applicant Detail Slide-over */}
-      <div
-        className={`fixed inset-y-0 right-0 w-full md:w-[500px] bg-white shadow-2xl z-[100] transform transition-transform duration-500 ease-in-out border-l border-slate-100 ${selectedApplicantId ? 'translate-x-0' : 'translate-x-full'}`}
-      >
+      {/* Applicant Detail slide-over */}
+      <div className={`fixed inset-y-0 right-0 w-full md:w-[500px] bg-white shadow-2xl z-[100] transform transition-transform duration-500 ease-in-out border-l border-slate-100 ${selectedApplicantId ? 'translate-x-0' : 'translate-x-full'}`}>
         {selectedApplicantId && (
           <ApplicantDetail
             applicantId={selectedApplicantId}
@@ -254,52 +261,36 @@ const AdminPortal = () => {
       {/* Toast */}
       {toast && (
         <div className="fixed bottom-6 right-6 z-[200]">
-          <div
-            className={`flex items-start gap-3 px-5 py-4 rounded-2xl shadow-2xl border ${
-              toast.type === 'success'
-                ? 'bg-white border-emerald-100'
-                : 'bg-white border-rose-100'
-            }`}
-          >
+          <div className={`flex items-start gap-3 px-5 py-4 rounded-2xl shadow-2xl border ${toast.type === 'success' ? 'bg-white border-emerald-100' : 'bg-white border-rose-100'}`}>
             <div className={`mt-0.5 ${toast.type === 'success' ? 'text-emerald-600' : 'text-rose-600'}`}>
               {toast.type === 'success' ? <CheckCircle2 size={18} /> : <X size={18} />}
             </div>
             <div className="min-w-[220px]">
-              <div className="text-sm font-bold text-slate-800">
-                {toast.type === 'success' ? 'Success' : 'Error'}
-              </div>
+              <div className="text-sm font-bold text-slate-800">{toast.type === 'success' ? 'Success' : 'Error'}</div>
               <div className="text-xs text-slate-500 mt-0.5">{toast.message}</div>
             </div>
-            <button
-              type="button"
-              onClick={() => setToast(null)}
-              className="ml-2 text-slate-300 hover:text-slate-600 transition-colors"
-              aria-label="Close toast"
-            >
+            <button type="button" onClick={() => setToast(null)} className="ml-2 text-slate-300 hover:text-slate-600 transition-colors">
               <X size={16} />
             </button>
           </div>
         </div>
       )}
+
     </div>
   );
 };
 
-// --- Sub-Components ---
+// ── Sub-components ────────────────────────────────────────────────────────────
+
 const LoadingScreen = () => (
   <div className="h-screen w-full flex items-center justify-center bg-[#F3F7F6]">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500" />
   </div>
 );
 
 const Brand = ({ collapsed, toggle }) => (
-  <div
-    className={`flex items-center gap-3 mb-10 px-2 cursor-pointer ${collapsed ? 'justify-center' : ''}`}
-    onClick={toggle}
-  >
-    <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white font-black shadow-lg">
-      IH
-    </div>
+  <div className={`flex items-center gap-3 mb-10 px-2 cursor-pointer ${collapsed ? 'justify-center' : ''}`} onClick={toggle}>
+    <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white font-black shadow-lg">IH</div>
     {!collapsed && <span className="text-xl font-bold tracking-tight">IntelliHire</span>}
   </div>
 );
@@ -307,9 +298,7 @@ const Brand = ({ collapsed, toggle }) => (
 const NavItem = ({ icon: Icon, label, active, onClick, collapsed }) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-      active ? 'bg-emerald-500 text-white font-bold' : 'text-slate-400 hover:bg-slate-50'
-    } ${collapsed ? 'justify-center' : ''}`}
+    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${active ? 'bg-emerald-500 text-white font-bold' : 'text-slate-400 hover:bg-slate-50'} ${collapsed ? 'justify-center' : ''}`}
   >
     <Icon size={18} />
     {!collapsed && <span className="text-sm">{label}</span>}

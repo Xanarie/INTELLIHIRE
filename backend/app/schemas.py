@@ -2,32 +2,35 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional, Any
 
 
-class StatusUpdate(BaseModel):
-    hiring_status: str
-
+# ── Applicant ─────────────────────────────────────────────────────────────────
 
 class UserResponse(BaseModel):
-    id: int
+    id: str
     f_name: str
     l_name: str
     email: str
-    phone: str
-    applied_position: str
+    phone: Optional[str] = None
+    age: Optional[int] = None
+    gender: Optional[str] = None
     current_city: Optional[str] = None
+    current_province: Optional[str] = None
+    home_address: Optional[str] = None
+    education: Optional[str] = None
+    app_source: Optional[str] = None
+    stable_internet: Optional[str] = None
+    isp: Optional[str] = None
+    applied_position: Optional[str] = None
+    resume_path: Optional[str] = None
+    resume_storage_path: Optional[str] = None
     hiring_status: Optional[str] = "Pre-screening"
-
-    # Resume quality score (standalone)
+    ai_prescreening_summary: Optional[str] = None
+    ai_match_json: Optional[Any] = None
     ai_resume_score: Optional[float] = None
     ai_resume_bucket: Optional[str] = None
     ai_resume_score_json: Optional[Any] = None
-
-    # Job match score
     ai_job_match_score: Optional[float] = None
     ai_job_match_bucket: Optional[str] = None
     ai_job_match_json: Optional[Any] = None
-
-    # Recruiter prescreen summary
-    ai_prescreening_summary: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -39,9 +42,18 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     applied_position: Optional[str] = None
+    recruiter_notes: Optional[str] = None
 
+
+class ApplicantStatusUpdate(BaseModel):
+    hiring_status: str = "Pre-screening"
+
+
+# ── Applicant Status ───────────────────────────────────────────────────────────
 
 class ApplicantStatusResponse(BaseModel):
+    id: Optional[str] = None
+    applicant_id: str
     status: str
     notes: Optional[str] = None
 
@@ -49,17 +61,14 @@ class ApplicantStatusResponse(BaseModel):
         from_attributes = True
 
 
-class ApplicantStatusUpdate(BaseModel):
-    hiring_status: str = "Pending"
-
-
-# ---------- Jobs ----------
+# ── Jobs ──────────────────────────────────────────────────────────────────────
 
 class JobCreate(BaseModel):
     title: str
     department: str
     status: str = "Open"
     applicant_limit: int = 50
+    job_summary: Optional[str] = None
     key_responsibilities: Optional[str] = None
     required_qualifications: Optional[str] = None
     preferred_qualifications: Optional[str] = None
@@ -74,6 +83,7 @@ class JobUpdate(BaseModel):
     department: Optional[str] = None
     status: Optional[str] = None
     applicant_limit: Optional[int] = None
+    job_summary: Optional[str] = None
     key_responsibilities: Optional[str] = None
     required_qualifications: Optional[str] = None
     preferred_qualifications: Optional[str] = None
@@ -81,11 +91,13 @@ class JobUpdate(BaseModel):
 
 
 class JobResponse(BaseModel):
-    id: int
+    id: str
     title: str
     department: str
     status: str
     applicant_limit: int
+    created_at: Optional[str] = None
+    job_summary: Optional[str] = None
     key_responsibilities: Optional[str] = None
     required_qualifications: Optional[str] = None
     preferred_qualifications: Optional[str] = None
@@ -93,3 +105,21 @@ class JobResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ── Employees ─────────────────────────────────────────────────────────────────
+
+class EmployeeResponse(BaseModel):
+    id: str
+    name: str
+    role: str
+    dept: Optional[str] = "General"
+
+    class Config:
+        from_attributes = True
+
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
+
+class StatusUpdate(BaseModel):
+    hiring_status: str
