@@ -84,7 +84,7 @@ def delete_applicant(applicant_id: str):
 
     data = doc_to_dict(doc)
 
-    # Delete resume from Firebase Storage
+    # Delete resume from Cloudinary
     if data.get("resume_storage_path"):
         delete_resume(data["resume_storage_path"])
 
@@ -150,7 +150,6 @@ def rerun_prescreen(applicant_id: str):
     if not url:
         raise HTTPException(status_code=404, detail="No resume on file")
 
-    # Download resume bytes from Firebase Storage URL
     try:
         r = requests.get(url, timeout=30)
         r.raise_for_status()
@@ -158,8 +157,7 @@ def rerun_prescreen(applicant_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Could not download resume: {e}")
 
-    # Write to temp file for extractors
-    ext = "pdf"  # Cloudinary public_id has no extension; PDFs are the default
+    ext = "pdf"
     with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
         tmp.write(resume_bytes)
         tmp_path = tmp.name
@@ -175,7 +173,6 @@ def rerun_prescreen(applicant_id: str):
 
     ai_updates = {}
 
-    # Resume quality
     try:
         rs = score_resume_quality(resume_focus_text)
         ai_updates["ai_resume_score"]      = float(rs.get("score", 0.0))
@@ -184,12 +181,11 @@ def rerun_prescreen(applicant_id: str):
     except Exception as e:
         print(f"[Prescreen] Resume score failed: {e}")
 
-    # ── Match against applied position + ALL open jobs in parallel ─────────
     from concurrent.futures import ThreadPoolExecutor, as_completed as _as_completed
 
     applied_position = data.get("applied_position", "")
-    open_jobs = db.collection("jobs").where("status", "==", "Open").get()
-    scoreable_jobs = [doc_to_dict(j) for j in open_jobs if _has_description(doc_to_dict(j))]
+    open_jobs        = db.collection("jobs").where("status", "==", "Open").get()
+    scoreable_jobs   = [doc_to_dict(j) for j in open_jobs if _has_description(doc_to_dict(j))]
 
     def _score_job(jd):
         try:
@@ -231,12 +227,13 @@ def rerun_prescreen(applicant_id: str):
         "knockout":   False, "breakdown": {},
         "must_haves": {"matched": [], "missing": []}, "mode": "resume_only",
     }
+
     try:
         prescreen = summarize_prescreen(
             resume_focus_text=resume_focus_text,
             job_title=applied_position,
             match_result=summary_input,
-            suitable_role=best_title,   # ← AI-chosen best role
+            suitable_role=best_title,
         )
         ai_updates["ai_prescreening_summary"] = prescreen.get("summary", "")
         if not applied_result:
@@ -275,7 +272,7 @@ def get_role_suggestions(applicant_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Could not download resume: {e}")
 
-    ext = "pdf"  # Cloudinary public_id has no extension; PDFs are the default
+    ext = "pdf"
     with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
         tmp.write(resume_bytes)
         tmp_path = tmp.name
@@ -289,7 +286,7 @@ def get_role_suggestions(applicant_id: str):
     if not resume_focus_text:
         raise HTTPException(status_code=400, detail="Could not extract resume text")
 
-    open_jobs = db.collection("jobs").where("status", "==", "Open").get()
+    open_jobs   = db.collection("jobs").where("status", "==", "Open").get()
     suggestions = []
     for jdoc in open_jobs:
         jd = doc_to_dict(jdoc)
@@ -309,41 +306,6 @@ def get_role_suggestions(applicant_id: str):
 
     suggestions.sort(key=lambda x: x["score"], reverse=True)
     return {"suggestions": suggestions}
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# APPLICANT STATUSES
-# ═══════════════════════════════════════════════════════════════════════════════
-
-@router.post("/status/{applicant_id}", response_model=ApplicantStatusResponse)
-def create_status(applicant_id: str, status_data: ApplicantStatusResponse):
-    db = get_db()
-    if not db.collection("applicants").document(applicant_id).get().exists:
-        raise HTTPException(status_code=404, detail="Applicant not found")
-
-    payload = {
-        "applicant_id": applicant_id,
-        "status":       status_data.status,
-        "notes":        status_data.notes,
-        "created_at":   datetime.now(timezone.utc).isoformat(),
-    }
-    _, ref = db.collection("applicant_statuses").add(payload)
-    payload["id"] = ref.id
-    return payload
-
-
-@router.get("/status/{applicant_id}/latest")
-def get_latest_status(applicant_id: str):
-    db   = get_db()
-    docs = (
-        db.collection("applicant_statuses")
-        .where("applicant_id", "==", applicant_id)
-        .order_by("created_at")
-        .get()
-    )
-    if not docs:
-        return {"status": "Pre-screening", "applicant_id": applicant_id}
-    return doc_to_dict(docs[-1])
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -372,96 +334,49 @@ def _job_full_text(job: dict) -> str:
     return "\n\n".join(parts)
 
 
-@router.get("/smart-screen")
-def smart_screen_rankings(title: str):
-    """Score ALL applicants against a specific job by title and return ranked results."""
-    from app.ai.matching    import score_applicant
-    from app.ai.pdf_extract import extract_resume_text
-    from concurrent.futures import ThreadPoolExecutor, as_completed as _as_completed
-    import tempfile, requests
-
-    db = get_db()
-
-    # Find the job by title
-    job_docs = db.collection("jobs").where("title", "==", title).limit(1).get()
-    if not job_docs:
-        raise HTTPException(status_code=404, detail=f"Job '{title}' not found")
-    job = doc_to_dict(job_docs[0])
-
-    if not _has_description(job):
-        raise HTTPException(status_code=422, detail="Job has no description to score against")
-
-    job_text = _job_full_text(job)
-
-    # Get all applicants
-    applicants = [doc_to_dict(d) for d in db.collection("applicants").get()]
-
-    def _score_one(app):
-        """Download resume, extract text, score against the job. Returns (id, score, bucket) or None."""
-        url = app.get("resume_path") or app.get("resume_url")
-        if not url:
-            return None
-        try:
-            r = requests.get(url, timeout=20)
-            r.raise_for_status()
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-                tmp.write(r.content)
-                tmp_path = tmp.name
-            try:
-                extracted = extract_resume_text(tmp_path)
-                focus_text = (extracted.get("focus_text") or "").strip()
-            finally:
-                os.unlink(tmp_path)
-            if not focus_text:
-                return None
-            result = score_applicant(focus_text, job_text)
-            return {
-                "id":         app.get("id"),
-                "f_name":     app.get("f_name", ""),
-                "l_name":     app.get("l_name", ""),
-                "email":      app.get("email", ""),
-                "applied_position": app.get("applied_position", ""),
-                "hiring_status":    app.get("hiring_status", ""),
-                "ai_recommended_role": app.get("ai_recommended_role"),
-                "role_match_score":  float(result.get("score", 0)),
-                "role_match_bucket": str(result.get("bucket", "Needs Review")),
-            }
-        except Exception as e:
-            print(f"[SmartScreen] Failed for {app.get('id')}: {e}")
-            return None
-
-    results = []
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        futures = [pool.submit(_score_one, app) for app in applicants]
-        for future in _as_completed(futures):
-            res = future.result()
-            if res:
-                results.append(res)
-
-    results.sort(key=lambda x: x["role_match_score"], reverse=True)
-    return results[:10]
-
-
+# ── OPTIMIZED: GET /jobs ──────────────────────────────────────────────────────
+# Original: db.collection("applicants").get()  ← full scan of ALL applicant
+#           fields on every page load.
+# Fixed:    .select(["applied_position"]).get() ← only the field we need.
+#           Writes batched into one commit instead of one per job.
+#           Scan scoped to Open jobs only — no point checking Closed ones.
+# ─────────────────────────────────────────────────────────────────────────────
 @router.get("/jobs")
 def get_all_jobs():
     db   = get_db()
     docs = db.collection("jobs").order_by("created_at").get()
     jobs = [doc_to_dict(d) for d in docs]
 
-    # Auto-close jobs that hit their applicant limit
-    applicants_all = db.collection("applicants").get()
-    position_counts: dict[str, int] = {}
-    for a in applicants_all:
-        pos = (a.to_dict() or {}).get("applied_position", "")
-        if pos:
-            position_counts[pos] = position_counts.get(pos, 0) + 1
+    open_jobs = [j for j in jobs if j.get("status") == "Open"]
 
-    for job in jobs:
-        limit = int(job.get("applicant_limit", 50))
-        count = position_counts.get(job.get("title", ""), 0)
-        if count >= limit and job.get("status") == "Open":
-            db.collection("jobs").document(job["id"]).update({"status": "Closed"})
-            job["status"] = "Closed"
+    if open_jobs:
+        # Lightweight projection — Firestore only sends applied_position
+        applicant_docs = (
+            db.collection("applicants")
+            .select(["applied_position"])
+            .get()
+        )
+
+        position_counts: dict[str, int] = {}
+        for a in applicant_docs:
+            pos = (a.to_dict() or {}).get("applied_position", "")
+            if pos:
+                position_counts[pos] = position_counts.get(pos, 0) + 1
+
+        batch = db.batch()
+        batch_has_updates = False
+
+        for job in open_jobs:
+            limit = int(job.get("applicant_limit", 50))
+            count = position_counts.get(job.get("title", ""), 0)
+            if count >= limit:
+                ref = db.collection("jobs").document(job["id"])
+                batch.update(ref, {"status": "Closed"})
+                job["status"] = "Closed"
+                batch_has_updates = True
+
+        if batch_has_updates:
+            batch.commit()
 
     return jobs
 
@@ -507,6 +422,72 @@ def delete_job(job_id: str):
     return {"message": "Job deleted successfully"}
 
 
+@router.get("/smart-screen")
+def smart_screen_rankings(title: str):
+    """Score ALL applicants against a specific job by title and return ranked results."""
+    from app.ai.matching    import score_applicant
+    from app.ai.pdf_extract import extract_resume_text
+    from concurrent.futures import ThreadPoolExecutor, as_completed as _as_completed
+    import tempfile, requests
+
+    db = get_db()
+
+    job_docs = db.collection("jobs").where("title", "==", title).limit(1).get()
+    if not job_docs:
+        raise HTTPException(status_code=404, detail=f"Job '{title}' not found")
+    job = doc_to_dict(job_docs[0])
+
+    if not _has_description(job):
+        raise HTTPException(status_code=422, detail="Job has no description to score against")
+
+    job_text   = _job_full_text(job)
+    applicants = [doc_to_dict(d) for d in db.collection("applicants").get()]
+
+    def _score_one(app):
+        url = app.get("resume_path") or app.get("resume_url")
+        if not url:
+            return None
+        try:
+            r = requests.get(url, timeout=20)
+            r.raise_for_status()
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+                tmp.write(r.content)
+                tmp_path = tmp.name
+            try:
+                extracted  = extract_resume_text(tmp_path)
+                focus_text = (extracted.get("focus_text") or "").strip()
+            finally:
+                os.unlink(tmp_path)
+            if not focus_text:
+                return None
+            result = score_applicant(focus_text, job_text)
+            return {
+                "id":               app.get("id"),
+                "f_name":           app.get("f_name", ""),
+                "l_name":           app.get("l_name", ""),
+                "email":            app.get("email", ""),
+                "applied_position": app.get("applied_position", ""),
+                "hiring_status":    app.get("hiring_status", ""),
+                "ai_recommended_role": app.get("ai_recommended_role"),
+                "role_match_score":  float(result.get("score", 0)),
+                "role_match_bucket": str(result.get("bucket", "Needs Review")),
+            }
+        except Exception as e:
+            print(f"[SmartScreen] Failed for {app.get('id')}: {e}")
+            return None
+
+    results = []
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = [pool.submit(_score_one, app) for app in applicants]
+        for future in _as_completed(futures):
+            res = future.result()
+            if res:
+                results.append(res)
+
+    results.sort(key=lambda x: x["role_match_score"], reverse=True)
+    return results[:10]
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # EMPLOYEES
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -541,3 +522,38 @@ def get_onboarding_applicants():
     db   = get_db()
     docs = db.collection("applicants").where("hiring_status", "==", "Onboarding").get()
     return [doc_to_dict(d) for d in docs]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# APPLICANT STATUSES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@router.post("/status/{applicant_id}", response_model=ApplicantStatusResponse)
+def create_status(applicant_id: str, status_data: ApplicantStatusResponse):
+    db = get_db()
+    if not db.collection("applicants").document(applicant_id).get().exists:
+        raise HTTPException(status_code=404, detail="Applicant not found")
+
+    payload = {
+        "applicant_id": applicant_id,
+        "status":       status_data.status,
+        "notes":        status_data.notes,
+        "created_at":   datetime.now(timezone.utc).isoformat(),
+    }
+    _, ref = db.collection("applicant_statuses").add(payload)
+    payload["id"] = ref.id
+    return payload
+
+
+@router.get("/status/{applicant_id}/latest")
+def get_latest_status(applicant_id: str):
+    db   = get_db()
+    docs = (
+        db.collection("applicant_statuses")
+        .where("applicant_id", "==", applicant_id)
+        .order_by("created_at")
+        .get()
+    )
+    if not docs:
+        return {"status": "Pre-screening", "applicant_id": applicant_id}
+    return doc_to_dict(docs[-1])
