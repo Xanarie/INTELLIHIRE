@@ -1,21 +1,38 @@
+<<<<<<< HEAD
 import React, { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
+=======
+import React, { useState, useRef , useEffect } from "react";
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
 import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
+<<<<<<< HEAD
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { CheckCircle2, FileText, User, Globe, Briefcase, ChevronRight, Pencil, Loader2 } from "lucide-react";
+=======
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { CheckCircle2, FileText, User, Globe, Briefcase, ChevronRight, Pencil } from "lucide-react";
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
 
 const API_BASE_URL = "http://localhost:8000";
 
 const ApplicantHub = () => {
   const [step, setStep] = useState(1);
+<<<<<<< HEAD
   const location = useLocation();
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef(null);
@@ -41,28 +58,76 @@ const ApplicantHub = () => {
     axios.get(`${API_BASE_URL}/api/applicants/jobs`)
       .then(r => setAvailableJobs(r.data))
       .catch(console.error);
+=======
+  const fileInputRef = useRef(null);
+  const [availableJobs, setAvailableJobs] = useState([]);
+
+  const [formData, setFormData] = useState({
+    // Step 1
+    f_name: "",
+    l_name: "",
+    age: "",
+    email: "",
+    phone: "",
+    current_city: "",
+    current_province: "",
+    education: "",
+    home_address: "",
+    gender: "Male",
+    // Step 2
+    app_source: "",
+    stable_internet: "No",
+    isp: "",
+    // Step 3
+    applied_position: "",
+    resume: null,
+  });
+
+  useEffect(() => {
+    const fetchJobs = async () => {
+      try {
+        // Points to the public applicants/jobs endpoint
+        const res = await axios.get(`${API_BASE_URL}/api/applicants/jobs`);
+        setAvailableJobs(res.data);
+      } catch (err) {
+        console.error("Error fetching jobs:", err);
+      }
+    };
+    fetchJobs();
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
   }, []);
 
   const nextStep = () => setStep((s) => s + 1);
   const prevStep = () => setStep((s) => s - 1);
+<<<<<<< HEAD
+=======
+  
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
 
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
 
+<<<<<<< HEAD
   // Phone: strip any non-digit character before storing
   const handlePhoneChange = (e) => {
     const digits = e.target.value.replace(/\D/g, "");
     setFormData({ ...formData, phone: digits });
   };
 
+=======
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
   const handleFileChange = (e) =>
     setFormData({ ...formData, resume: e.target.files[0] });
 
   const handleSubmit = async () => {
     if (!formData.resume) return alert("Please upload your resume");
+<<<<<<< HEAD
     if (submitting) return;
 
     setSubmitting(true);
+=======
+
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
     const data = new FormData();
     Object.entries(formData).forEach(([k, v]) => {
       if (v !== null) data.append(k, v);
@@ -72,11 +137,17 @@ const ApplicantHub = () => {
       await axios.post(`${API_BASE_URL}/api/applicants/`, data, {
         headers: { "Content-Type": "multipart/form-data" },
       });
+<<<<<<< HEAD
       setStep(5);
     } catch (err) {
       alert("Submission failed. Please check all fields.");
     } finally {
       setSubmitting(false);
+=======
+      setStep(5); // Success is now Step 5
+    } catch (err) {
+      alert("Submission failed. Please check all fields.");
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
     }
   };
 
@@ -102,8 +173,12 @@ const ApplicantHub = () => {
         </CardHeader>
 
         <CardContent className="p-10 pt-0 space-y-8">
+<<<<<<< HEAD
 
           {/* STEP 1 */}
+=======
+          {/* STEP 1: BASIC INFORMATION */}
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
           {step === 1 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="grid grid-cols-2 gap-4">
@@ -116,6 +191,10 @@ const ApplicantHub = () => {
                   <Input name="l_name" placeholder="Enter last name" onChange={handleChange} value={formData.l_name} />
                 </div>
               </div>
+<<<<<<< HEAD
+=======
+
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Age</Label>
@@ -126,6 +205,7 @@ const ApplicantHub = () => {
                   <Input name="email" type="email" placeholder="email@example.com" onChange={handleChange} value={formData.email} />
                 </div>
               </div>
+<<<<<<< HEAD
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Contact Number</Label>
@@ -138,6 +218,13 @@ const ApplicantHub = () => {
                     value={formData.phone}
                     maxLength={11}
                   />
+=======
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Contact Number</Label>
+                  <Input name="phone" placeholder="09XXXXXXXXX" onChange={handleChange} value={formData.phone} />
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
                 </div>
                 <div className="space-y-2">
                   <Label>Highest Educational Attainment</Label>
@@ -152,6 +239,10 @@ const ApplicantHub = () => {
                   </Select>
                 </div>
               </div>
+<<<<<<< HEAD
+=======
+
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Current City</Label>
@@ -162,10 +253,15 @@ const ApplicantHub = () => {
                   <Input name="current_province" placeholder="e.g. Cebu" onChange={handleChange} value={formData.current_province} />
                 </div>
               </div>
+<<<<<<< HEAD
+=======
+
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
               <div className="space-y-2">
                 <Label>Complete Home Address</Label>
                 <Input name="home_address" placeholder="Unit/Street/Barangay" onChange={handleChange} value={formData.home_address} />
               </div>
+<<<<<<< HEAD
               <div className="space-y-3">
                 <Label>Gender</Label>
                 <RadioGroup value={formData.gender} onValueChange={(v) => setFormData({ ...formData, gender: v })} className="flex gap-6">
@@ -173,18 +269,40 @@ const ApplicantHub = () => {
                   <div className="flex items-center space-x-2"><RadioGroupItem value="Female" id="f" /><Label htmlFor="f" className="font-normal">Female</Label></div>
                 </RadioGroup>
               </div>
+=======
+
+              <div className="space-y-3">
+                <Label>Gender</Label>
+                <RadioGroup value={formData.gender} onValueChange={(v) => setFormData({ ...formData, gender: v })} className="flex gap-6">
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="Male" id="m" />
+                    <Label htmlFor="m" className="font-normal">Male</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="Female" id="f" />
+                    <Label htmlFor="f" className="font-normal">Female</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
               <Button className="w-full bg-emerald-500 hover:bg-emerald-600 h-12 rounded-xl text-lg font-bold" onClick={nextStep}>
                 Next Step
               </Button>
             </div>
           )}
 
+<<<<<<< HEAD
           {/* STEP 2 */}
+=======
+          {/* STEP 2: APPLICATION SOURCE & INTERNET */}
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
           {step === 2 && (
             <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="space-y-4">
                 <Label className="text-lg font-bold">Application Source</Label>
                 <div className="space-y-2">
+<<<<<<< HEAD
                   <Label className="text-slate-500">How did you find this job posting?</Label>
                   <Select onValueChange={(v) => setFormData({ ...formData, app_source: v })} value={formData.app_source}>
                     <SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger>
@@ -199,15 +317,47 @@ const ApplicantHub = () => {
                 </div>
               </div>
               <Separator />
+=======
+                    <Label className="text-slate-500">How did you find this job posting?</Label>
+                    <Select onValueChange={(v) => setFormData({ ...formData, app_source: v })} value={formData.app_source}>
+                    <SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="Facebook">Facebook</SelectItem>
+                        <SelectItem value="LinkedIn">LinkedIn</SelectItem>
+                        <SelectItem value="Indeed">Indeed</SelectItem>
+                        <SelectItem value="Company Website">Company Website</SelectItem>
+                        <SelectItem value="Referral">Referral</SelectItem>
+                    </SelectContent>
+                    </Select>
+                </div>
+              </div>
+
+              <Separator />
+
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
               <div className="space-y-6">
                 <Label className="text-lg font-bold">Internet Capability</Label>
                 <div className="space-y-3">
                   <Label className="text-slate-500">Do you have a stable home internet?</Label>
                   <RadioGroup value={formData.stable_internet} onValueChange={(v) => setFormData({ ...formData, stable_internet: v })} className="flex gap-6">
+<<<<<<< HEAD
                     <div className="flex items-center space-x-2"><RadioGroupItem value="Yes" id="iy" /><Label htmlFor="iy" className="font-normal">Yes</Label></div>
                     <div className="flex items-center space-x-2"><RadioGroupItem value="No" id="in" /><Label htmlFor="in" className="font-normal">No</Label></div>
                   </RadioGroup>
                 </div>
+=======
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="Yes" id="iy" />
+                      <Label htmlFor="iy" className="font-normal">Yes</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="No" id="in" />
+                      <Label htmlFor="in" className="font-normal">No</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
                 {formData.stable_internet === "Yes" && (
                   <div className="space-y-2 animate-in zoom-in-95 duration-300">
                     <Label>Internet Provider</Label>
@@ -224,6 +374,10 @@ const ApplicantHub = () => {
                   </div>
                 )}
               </div>
+<<<<<<< HEAD
+=======
+
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
               <div className="flex gap-4">
                 <Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={prevStep}>Previous</Button>
                 <Button className="flex-[2] bg-emerald-500 hover:bg-emerald-600 h-12 rounded-xl font-bold" onClick={nextStep}>Next Step</Button>
@@ -231,11 +385,16 @@ const ApplicantHub = () => {
             </div>
           )}
 
+<<<<<<< HEAD
           {/* STEP 3 */}
+=======
+          {/* STEP 3: POSITION & RESUME */}
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
           {step === 3 && (
             <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="space-y-4">
                 <Label className="text-lg font-bold">Position Selection</Label>
+<<<<<<< HEAD
                 <div className="space-y-2">
                   <Label className="text-slate-500">What position are you applying for?</Label>
                   <Select onValueChange={(v) => setFormData({ ...formData, applied_position: v })} value={formData.applied_position}>
@@ -252,6 +411,34 @@ const ApplicantHub = () => {
                 </div>
               </div>
               <Separator />
+=======
+                  <div className="space-y-2">
+                    <Label className="text-slate-500">What position are you applying for?</Label>
+        
+              {/* NEW DYNAMIC SELECT STARTS HERE */}
+              <Select 
+                onValueChange={(v) => setFormData({ ...formData, applied_position: v })} 
+                value={formData.applied_position}
+              >
+              <SelectTrigger><SelectValue placeholder="Select desired role" /></SelectTrigger>
+              <SelectContent>
+                {availableJobs.length > 0 ? (
+                availableJobs.map((job) => (
+                <SelectItem key={job.id} value={job.title}>
+                  {job.title}
+                </SelectItem>
+              ))
+              ) : (
+              <SelectItem disabled value="none">No positions currently open</SelectItem>
+              )}
+              </SelectContent>
+              </Select>
+              </div>
+            </div>
+
+              <Separator />
+
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
               <div className="space-y-4">
                 <Label className="text-lg font-bold">Resume Upload</Label>
                 <div
@@ -266,6 +453,10 @@ const ApplicantHub = () => {
                   <p className="text-xs text-slate-400 mt-1">Maximum file size: 5MB</p>
                 </div>
               </div>
+<<<<<<< HEAD
+=======
+
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
               <div className="flex gap-4">
                 <Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={prevStep}>Previous</Button>
                 <Button className="flex-[2] bg-emerald-500 hover:bg-emerald-600 h-12 rounded-xl font-bold" onClick={nextStep}>Review Application</Button>
@@ -273,6 +464,7 @@ const ApplicantHub = () => {
             </div>
           )}
 
+<<<<<<< HEAD
           {/* STEP 4: REVIEW */}
           {step === 4 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
@@ -280,6 +472,16 @@ const ApplicantHub = () => {
                 <div className="bg-emerald-500 rounded-full p-1 text-white"><CheckCircle2 size={16} /></div>
                 <p className="text-xs text-emerald-800 font-medium">Almost there! Please review your details before submitting.</p>
               </div>
+=======
+          {/* STEP 4: REVIEW & EDIT SLIDE */}
+          {step === 4 && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+              <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100/50 flex items-center gap-3">
+                <div className="bg-emerald-500 rounded-full p-1 text-white"><CheckCircle2 size={16}/></div>
+                <p className="text-xs text-emerald-800 font-medium">Almost there! Please review your details before submitting.</p>
+              </div>
+
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
               <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8 bg-white border border-slate-100 p-6 rounded-[1.5rem] shadow-sm">
                 <ReviewItem icon={User} label="Full Name" value={`${formData.f_name} ${formData.l_name}`} />
                 <ReviewItem icon={Globe} label="Email Address" value={formData.email} />
@@ -288,6 +490,7 @@ const ApplicantHub = () => {
                 <ReviewItem icon={Globe} label="Internet" value={`${formData.stable_internet} (${formData.isp || 'N/A'})`} />
                 <ReviewItem icon={FileText} label="Resume" value={formData.resume?.name} />
               </div>
+<<<<<<< HEAD
               <div className="flex gap-4 mt-4">
                 <Button variant="outline" className="flex-1 h-12 rounded-xl border-slate-200 text-slate-600 font-bold gap-2" onClick={() => setStep(1)}>
                   <Pencil size={16} /> Edit All
@@ -307,6 +510,15 @@ const ApplicantHub = () => {
                       Confirm & Submit Application <ChevronRight size={18} />
                     </>
                   )}
+=======
+
+              <div className="flex gap-4 mt-4">
+                <Button variant="outline" className="flex-1 h-12 rounded-xl border-slate-200 text-slate-600 font-bold gap-2" onClick={() => setStep(1)}>
+                  <Pencil size={16}/> Edit All
+                </Button>
+                <Button className="flex-[2] bg-emerald-500 hover:bg-emerald-600 h-12 rounded-xl font-black text-white shadow-lg shadow-emerald-500/20 gap-2" onClick={handleSubmit}>
+                  Confirm & Submit Application <ChevronRight size={18}/>
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
                 </Button>
               </div>
             </div>
@@ -325,13 +537,20 @@ const ApplicantHub = () => {
               </Button>
             </div>
           )}
+<<<<<<< HEAD
 
+=======
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
         </CardContent>
       </Card>
     </div>
   );
 };
 
+<<<<<<< HEAD
+=======
+// --- Helper Component for Review Items ---
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
 const ReviewItem = ({ icon: Icon, label, value }) => (
   <div className="space-y-1">
     <div className="flex items-center gap-2 text-slate-400">

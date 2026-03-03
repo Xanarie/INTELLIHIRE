@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 from datetime import datetime
 
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text
@@ -5,6 +6,12 @@ from sqlalchemy.dialects.mysql import JSON
 from sqlalchemy.orm import relationship
 
 from .firebase_client import Base
+=======
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey , Text
+from sqlalchemy.orm import relationship
+from datetime import datetime
+from .database import Base
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
 
 
 class Applicant(Base):
@@ -28,6 +35,7 @@ class Applicant(Base):
     resume_path = Column(String(255))
     hiring_status = Column(String(50), default="Pre-screening")
 
+<<<<<<< HEAD
     # AI: Resume quality score (standalone)
     ai_resume_score = Column(Float, nullable=True)
     ai_resume_bucket = Column(String(50), nullable=True)
@@ -48,6 +56,24 @@ class Applicant(Base):
     )
 
 
+=======
+    statuses = relationship(
+        "ApplicantStatus",
+        back_populates="applicant",
+        cascade="all, delete-orphan"
+    )
+
+
+class ApplicantInput(Base):  
+    __tablename__ = "applicants_input"
+
+    id = Column(Integer, primary_key=True, index=True)
+    f_name = Column(String(50), nullable=False)
+    l_name = Column(String(50), nullable=False)
+    email = Column(String(100), nullable=False)
+
+
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
 class ApplicantStatus(Base):
     __tablename__ = "applicant_statuses"
 
@@ -57,17 +83,26 @@ class ApplicantStatus(Base):
 
     applicant = relationship("Applicant", back_populates="statuses")
 
+<<<<<<< HEAD
+=======
+    from sqlalchemy import Text
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
 
 class Job(Base):
     __tablename__ = "jobs"
 
     id = Column(Integer, primary_key=True, index=True)
+<<<<<<< HEAD
     title = Column(String(255), nullable=False)
+=======
+    title = Column(String(255), nullable=False) 
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
     department = Column(String(255), nullable=False)
     status = Column(String(50), default="Open")
     created_at = Column(DateTime, default=datetime.utcnow)
     applicant_limit = Column(Integer, default=50)
 
+<<<<<<< HEAD
     # Structured job description — 4 sections
     key_responsibilities    = Column(Text, nullable=True)
     required_qualifications = Column(Text, nullable=True)
@@ -101,6 +136,18 @@ class Job(Base):
             or self.key_competencies
         )
 
+=======
+
+class JobPost(Base):
+    __tablename__ = "job_posts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(255), nullable=False)
+    department = Column(String(100))
+    description = Column(Text)
+    requirements = Column(Text)
+    status = Column(String(50), default="Open", nullable=False)
+>>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
 
 class Employee(Base):
     __tablename__ = "employees"
