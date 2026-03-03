@@ -1,10 +1,6 @@
-// frontend/src/components/AdminHub.jsx
-// Key fix: main is now overflow-hidden flex-col so it passes remaining height
-// down to tab content. Recruitment tab gets flex-1 min-h-0 so the board fills
-// the space and columns scroll independently inside it.
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAdminData } from '../hooks/useAdminData';
+import { useJobData }   from '../hooks/useJobData';
 import {
   LayoutDashboard,
   Users,
@@ -16,45 +12,53 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 
-import RecruitmentTab from "./admin/Recruitment";
-import DashboardTab from "./admin/Dashboard";
-import EmployeeTab from "./admin/Employees";
-import JobTab from "./admin/Job";
-import OnboardingTab from "./admin/Onboarding";
-import AITab from "./admin/AI";
+import RecruitmentTab  from "./admin/Recruitment";
+import DashboardTab    from "./admin/Dashboard";
+import EmployeeTab     from "./admin/Employees";
+import JobTab          from "./admin/Job";
+import OnboardingTab   from "./admin/Onboarding";
+import AITab           from "./admin/AI";
 import ApplicantDetail from "./ApplicantDetail";
-import JobModal from './modals/JobModal';
+import JobModal        from './modals/JobModal';
 
 const AdminPortal = () => {
-  const adminData = useAdminData() || {};
+  // ── Data hooks ───────────────────────────────────────────────────────────────
   const {
-    applicants = [],
-    jobs = [],
-    loading = false,
-    employees = [],
+    applicants,
+    employees,
+    loading: appLoading,
     handleSaveEmployee,
+    handleDeleteApplicant,
+    refresh: refreshApplicants,
+  } = useAdminData();
+
+  const {
+    jobs,
+    jobsLoading,
     handleSaveJob,
     handleDeleteJob,
-    handleDeleteApplicant,
-    refresh,
-  } = adminData;
+    refreshJobs,
+  } = useJobData();
 
+  const loading = appLoading || jobsLoading;
+  const refresh = () => { refreshApplicants(); refreshJobs(); };
+
+  // ── UI state ─────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState(
     () => localStorage.getItem('intellihire_active_tab') || 'recruitment'
   );
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm]                       = useState('');
+  const [collapsed, setCollapsed]                         = useState(false);
+  const [selectedApplicantId, setSelectedApplicantId]     = useState(null);
+  const [isJobModalOpen, setIsJobModalOpen]               = useState(false);
+  const [editingJob, setEditingJob]                       = useState(null);
+  const [toast, setToast]                                 = useState(null);
 
-  // Persist active tab across refreshes
   const switchTab = (tab) => {
     localStorage.setItem('intellihire_active_tab', tab);
     setActiveTab(tab);
-    setSearchTerm(""); // clear search when switching tabs
+    setSearchTerm('');
   };
-  const [collapsed, setCollapsed] = useState(false);
-  const [selectedApplicantId, setSelectedApplicantId] = useState(null);
-  const [isJobModalOpen, setIsJobModalOpen] = useState(false);
-  const [editingJob, setEditingJob] = useState(null);
-  const [toast, setToast] = useState(null);
 
   useEffect(() => {
     if (!toast) return;
@@ -63,14 +67,14 @@ const AdminPortal = () => {
   }, [toast]);
 
   const filteredApplicants = useMemo(
-    () => (applicants || []).filter(app =>
+    () => applicants.filter(app =>
       `${app?.f_name || ''} ${app?.l_name || ''}`.toLowerCase().includes(searchTerm.toLowerCase())
     ),
     [applicants, searchTerm]
   );
 
   const filteredJobs = useMemo(
-    () => (jobs || []).filter(j =>
+    () => jobs.filter(j =>
       (j?.title || '').toLowerCase().includes(searchTerm.toLowerCase())
     ),
     [jobs, searchTerm]
@@ -78,9 +82,9 @@ const AdminPortal = () => {
 
   const getStatusBadge = (status) => {
     const s = status?.toLowerCase() || '';
-    if (s.includes('hired'))      return 'bg-emerald-100 text-emerald-700';
-    if (s.includes('rejected'))   return 'bg-rose-100 text-rose-700';
-    if (s.includes('interview'))  return 'bg-amber-100 text-amber-700';
+    if (s.includes('hired'))     return 'bg-emerald-100 text-emerald-700';
+    if (s.includes('rejected'))  return 'bg-rose-100 text-rose-700';
+    if (s.includes('interview')) return 'bg-amber-100 text-amber-700';
     return 'bg-blue-100 text-blue-700';
   };
 
@@ -92,10 +96,13 @@ const AdminPortal = () => {
   };
 
   const onboardingApplicants = useMemo(
-    () => applicants.filter(app => (app?.status || app?.hiring_status || '').toLowerCase() === 'onboarding'),
+    () => applicants.filter(app =>
+      (app?.status || app?.hiring_status || '').toLowerCase() === 'onboarding'
+    ),
     [applicants]
   );
 
+  // Keep editingJob in sync with live jobs state while modal is open
   useEffect(() => {
     if (!isJobModalOpen) return;
     if (!editingJob?.id) return;
@@ -127,12 +134,11 @@ const AdminPortal = () => {
     return false;
   };
 
-  const handleEditJob = (job) => { setEditingJob(job); setIsJobModalOpen(true); };
+  const handleEditJob    = (job) => { setEditingJob(job); setIsJobModalOpen(true); };
   const handleCloseJobModal = () => { setIsJobModalOpen(false); setEditingJob(null); };
 
   if (loading) return <LoadingScreen />;
 
-  // Recruitment gets its own full-height layout — no page scroll, columns scroll
   const isRecruitment = activeTab === 'recruitment';
 
   return (
@@ -154,10 +160,10 @@ const AdminPortal = () => {
         </button>
       </aside>
 
-      {/* Main — flex-col, overflow-hidden so height passes down cleanly */}
+      {/* Main */}
       <main className={`flex-1 flex flex-col min-w-0 ${isRecruitment ? 'overflow-hidden' : 'overflow-y-auto'}`}>
 
-        {/* Header — shrink-0 so it never gets squeezed */}
+        {/* Header */}
         <header className="shrink-0 flex justify-between items-center px-8 pt-8 pb-6">
           <div>
             <h1 className="text-2xl font-black text-slate-800 capitalize tracking-tight">{activeTab}</h1>
@@ -176,7 +182,6 @@ const AdminPortal = () => {
           </div>
         )}
 
-        {/* Recruitment: flex-1 min-h-0 so the board fills remaining height exactly */}
         {activeTab === 'recruitment' && (
           <div className="flex-1 min-h-0 px-8 pb-8 flex flex-col">
             <RecruitmentTab

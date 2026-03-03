@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { API_BASE } from '../config/api';
+
+const API_BASE = 'http://localhost:8000/api/admin';
 
 const extractErrMessage = (err, fallback) => {
   const data = err?.response?.data;
