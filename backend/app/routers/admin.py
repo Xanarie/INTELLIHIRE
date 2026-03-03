@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import os
 from datetime import datetime, timezone
 from typing import Optional
@@ -158,8 +157,7 @@ def rerun_prescreen(applicant_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Could not download resume: {e}")
 
-    ext = "pdf"
-    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         tmp.write(resume_bytes)
         tmp_path = tmp.name
 
@@ -182,166 +180,84 @@ def rerun_prescreen(applicant_id: str):
     except Exception as e:
         print(f"[Prescreen] Resume score failed: {e}")
 
-    from concurrent.futures import ThreadPoolExecutor, as_completed as _as_completed
-
     applied_position = data.get("applied_position", "")
     open_jobs        = db.collection("jobs").where("status", "==", "Open").get()
-    scoreable_jobs   = [doc_to_dict(j) for j in open_jobs if _has_description(doc_to_dict(j))]
+
+    def _has_desc(jd):
+        return any((jd.get(f) or "").strip() for f in (
+            "key_responsibilities", "required_qualifications",
+            "preferred_qualifications", "key_competencies"))
+
+    def _full_text(jd):
+        parts = []
+        if jd.get("key_responsibilities"):
+            parts.append(f"Responsibilities:\n{jd['key_responsibilities']}")
+        if jd.get("required_qualifications"):
+            parts.append(f"Required Qualifications:\n{jd['required_qualifications']}")
+            parts.append(f"Must Have:\n{jd['required_qualifications']}")
+        if jd.get("preferred_qualifications"):
+            parts.append(f"Preferred Qualifications:\n{jd['preferred_qualifications']}")
+        if jd.get("key_competencies"):
+            parts.append(f"Key Competencies:\n{jd['key_competencies']}")
+        return "\n\n".join(parts)
+
+    scoreable_jobs = [doc_to_dict(j) for j in open_jobs if _has_desc(doc_to_dict(j))]
+    best_title     = applied_position
+    best_score     = -1.0
+    all_scores     = {}
+    applied_result = None
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed as _as_completed
 
     def _score_job(jd):
         try:
-            result = score_applicant(resume_focus_text, _job_full_text(jd))
+            result = score_applicant(resume_focus_text, _full_text(jd))
             return jd["title"], result
         except Exception as e:
             print(f"[Prescreen] Job score failed for '{jd.get('title')}': {e}")
             return jd["title"], None
 
-    best_title   = applied_position
-    best_score   = -1.0
-    applied_result = None
-
-    if scoreable_jobs:
-        with ThreadPoolExecutor(max_workers=4) as pool:
-            futures = [pool.submit(_score_job, jd) for jd in scoreable_jobs]
-            for future in _as_completed(futures):
-                title, result = future.result()
-                if result is None:
-                    continue
-                sc = float(result.get("score", 0.0))
-                if title == applied_position:
-                    applied_result = result
-                if sc > best_score:
-                    best_score = sc
-                    best_title = title
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = {pool.submit(_score_job, jd): jd for jd in scoreable_jobs}
+        for future in _as_completed(futures):
+            title, result = future.result()
+            if result is None:
+                continue
+            score = float(result.get("score", 0.0))
+            all_scores[title] = result
+            if score > best_score:
+                best_score = score
+                best_title = title
+            if title == applied_position:
+                applied_result = result
 
     if applied_result:
         ai_updates["ai_job_match_score"]  = float(applied_result.get("score", 0.0))
-        ai_updates["ai_job_match_bucket"] = str(applied_result.get("bucket", "Needs Review"))
+        ai_updates["ai_job_match_bucket"] = str(applied_result.get("bucket", "Weak"))
         ai_updates["ai_job_match_json"]   = applied_result
-        ai_updates["ai_match_json"]       = applied_result
 
     ai_updates["ai_recommended_role"] = best_title
 
-    summary_input = applied_result or {
-        "score":      ai_updates.get("ai_resume_score", 0.0),
-        "bucket":     ai_updates.get("ai_resume_bucket", "Weak"),
-        "knockout":   False, "breakdown": {},
-        "must_haves": {"matched": [], "missing": []}, "mode": "resume_only",
-    }
-
     try:
+        summary_match = applied_result or (all_scores.get(best_title) if all_scores else None)
         prescreen = summarize_prescreen(
             resume_focus_text=resume_focus_text,
             job_title=applied_position,
-            match_result=summary_input,
+            match_result=summary_match,
             suitable_role=best_title,
         )
         ai_updates["ai_prescreening_summary"] = prescreen.get("summary", "")
-        if not applied_result:
-            ai_updates["ai_match_json"] = summary_input
     except Exception as e:
         print(f"[Prescreen] Summary failed: {e}")
 
-    if ai_updates:
-        ref.update(ai_updates)
-
+    ref.update(ai_updates)
     return doc_to_dict(ref.get())
-
-
-# ── Role suggestions ──────────────────────────────────────────────────────────
-
-@router.get("/applicants/{applicant_id}/role-suggestions")
-def get_role_suggestions(applicant_id: str):
-    from app.ai.pdf_extract import extract_resume_text
-    from app.ai.matching    import score_applicant
-    import tempfile, requests
-
-    db  = get_db()
-    doc = db.collection("applicants").document(applicant_id).get()
-    if not doc.exists:
-        raise HTTPException(status_code=404, detail="Applicant not found")
-
-    data = doc_to_dict(doc)
-    url  = data.get("resume_path")
-    if not url:
-        raise HTTPException(status_code=404, detail="No resume on file")
-
-    try:
-        r = requests.get(url, timeout=30)
-        r.raise_for_status()
-        resume_bytes = r.content
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Could not download resume: {e}")
-
-    ext = "pdf"
-    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
-        tmp.write(resume_bytes)
-        tmp_path = tmp.name
-
-    try:
-        extracted         = extract_resume_text(tmp_path)
-        resume_focus_text = (extracted.get("focus_text") or "").strip()
-    finally:
-        os.unlink(tmp_path)
-
-    if not resume_focus_text:
-        raise HTTPException(status_code=400, detail="Could not extract resume text")
-
-    open_jobs   = db.collection("jobs").where("status", "==", "Open").get()
-    suggestions = []
-    for jdoc in open_jobs:
-        jd = doc_to_dict(jdoc)
-        if not _has_description(jd):
-            continue
-        try:
-            result = score_applicant(resume_focus_text, _job_full_text(jd))
-            suggestions.append({
-                "job_id":   jd["id"],
-                "title":    jd.get("title", ""),
-                "score":    result.get("score", 0),
-                "bucket":   result.get("bucket", ""),
-                "knockout": result.get("knockout", False),
-            })
-        except Exception:
-            pass
-
-    suggestions.sort(key=lambda x: x["score"], reverse=True)
-    return {"suggestions": suggestions}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # JOBS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def _has_description(job: dict) -> bool:
-    return any(
-        (job.get(f) or "").strip()
-        for f in ("key_responsibilities", "required_qualifications",
-                  "preferred_qualifications", "key_competencies")
-    )
-
-
-def _job_full_text(job: dict) -> str:
-    parts = []
-    if job.get("key_responsibilities"):
-        parts.append(f"Responsibilities:\n{job['key_responsibilities']}")
-    if job.get("required_qualifications"):
-        parts.append(f"Required Qualifications:\n{job['required_qualifications']}")
-        parts.append(f"Must Have:\n{job['required_qualifications']}")
-    if job.get("preferred_qualifications"):
-        parts.append(f"Preferred Qualifications:\n{job['preferred_qualifications']}")
-    if job.get("key_competencies"):
-        parts.append(f"Key Competencies:\n{job['key_competencies']}")
-    return "\n\n".join(parts)
-
-
-# ── OPTIMIZED: GET /jobs ──────────────────────────────────────────────────────
-# Original: db.collection("applicants").get()  ← full scan of ALL applicant
-#           fields on every page load.
-# Fixed:    .select(["applied_position"]).get() ← only the field we need.
-#           Writes batched into one commit instead of one per job.
-#           Scan scoped to Open jobs only — no point checking Closed ones.
-# ─────────────────────────────────────────────────────────────────────────────
 @router.get("/jobs")
 def get_all_jobs():
     db   = get_db()
@@ -351,7 +267,6 @@ def get_all_jobs():
     open_jobs = [j for j in jobs if j.get("status") == "Open"]
 
     if open_jobs:
-        # Lightweight projection — Firestore only sends applied_position
         applicant_docs = (
             db.collection("applicants")
             .select(["applied_position"])
@@ -364,7 +279,7 @@ def get_all_jobs():
             if pos:
                 position_counts[pos] = position_counts.get(pos, 0) + 1
 
-        batch = db.batch()
+        batch             = db.batch()
         batch_has_updates = False
 
         for job in open_jobs:
@@ -426,28 +341,33 @@ def delete_job(job_id: str):
 @router.get("/smart-screen")
 def smart_screen_rankings(title: str):
     """Score ALL applicants against a specific job by title and return ranked results."""
-    from app.ai.matching    import score_applicant
-    from app.ai.pdf_extract import extract_resume_text
-    from concurrent.futures import ThreadPoolExecutor, as_completed as _as_completed
+    from app.ai.pdf_extract  import extract_resume_text
+    from app.ai.matching     import score_applicant
     import tempfile, requests
 
-    db = get_db()
+    db      = get_db()
+    job_q   = db.collection("jobs").where("title", "==", title).limit(1).get()
+    if not job_q:
+        raise HTTPException(status_code=404, detail="Job not found")
 
-    job_docs = db.collection("jobs").where("title", "==", title).limit(1).get()
-    if not job_docs:
-        raise HTTPException(status_code=404, detail=f"Job '{title}' not found")
-    job = doc_to_dict(job_docs[0])
+    job     = doc_to_dict(job_q[0])
+    jd_text = "\n\n".join(filter(None, [
+        job.get("key_responsibilities", ""),
+        job.get("required_qualifications", ""),
+        job.get("preferred_qualifications", ""),
+        job.get("key_competencies", ""),
+    ]))
 
-    if not _has_description(job):
-        raise HTTPException(status_code=422, detail="Job has no description to score against")
+    if not jd_text.strip():
+        raise HTTPException(status_code=400, detail="Job has no description to match against")
 
-    job_text   = _job_full_text(job)
     applicants = [doc_to_dict(d) for d in db.collection("applicants").get()]
+    results    = []
 
-    def _score_one(app):
-        url = app.get("resume_path") or app.get("resume_url")
+    for a in applicants:
+        url = a.get("resume_path")
         if not url:
-            return None
+            continue
         try:
             r = requests.get(url, timeout=20)
             r.raise_for_status()
@@ -455,38 +375,61 @@ def smart_screen_rankings(title: str):
                 tmp.write(r.content)
                 tmp_path = tmp.name
             try:
-                extracted  = extract_resume_text(tmp_path)
-                focus_text = (extracted.get("focus_text") or "").strip()
+                extracted = extract_resume_text(tmp_path)
+                text      = (extracted.get("focus_text") or "").strip()
             finally:
                 os.unlink(tmp_path)
-            if not focus_text:
-                return None
-            result = score_applicant(focus_text, job_text)
-            return {
-                "id":               app.get("id"),
-                "f_name":           app.get("f_name", ""),
-                "l_name":           app.get("l_name", ""),
-                "email":            app.get("email", ""),
-                "applied_position": app.get("applied_position", ""),
-                "hiring_status":    app.get("hiring_status", ""),
-                "ai_recommended_role": app.get("ai_recommended_role"),
-                "role_match_score":  float(result.get("score", 0)),
-                "role_match_bucket": str(result.get("bucket", "Needs Review")),
-            }
+
+            if not text:
+                continue
+
+            score_result = score_applicant(text, jd_text)
+            results.append({
+                **a,
+                "smart_score":  score_result.get("score", 0.0),
+                "smart_bucket": score_result.get("bucket", "Weak"),
+                "smart_json":   score_result,
+            })
         except Exception as e:
-            print(f"[SmartScreen] Failed for {app.get('id')}: {e}")
-            return None
+            print(f"[SmartScreen] Failed for applicant {a.get('id')}: {e}")
 
-    results = []
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        futures = [pool.submit(_score_one, app) for app in applicants]
-        for future in _as_completed(futures):
-            res = future.result()
-            if res:
-                results.append(res)
+    results.sort(key=lambda x: x.get("smart_score", 0.0), reverse=True)
+    return results
 
-    results.sort(key=lambda x: x["role_match_score"], reverse=True)
-    return results[:10]
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STATUS HISTORY
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@router.post("/status/{applicant_id}", response_model=ApplicantStatusResponse)
+def create_status(applicant_id: str, status_data: ApplicantStatusResponse):
+    db = get_db()
+    if not db.collection("applicants").document(applicant_id).get().exists:
+        raise HTTPException(status_code=404, detail="Applicant not found")
+
+    payload = {
+        "applicant_id": applicant_id,
+        "status":       status_data.status,
+        "notes":        status_data.notes,
+        "created_at":   datetime.now(timezone.utc).isoformat(),
+    }
+    _, ref = db.collection("applicant_statuses").add(payload)
+    payload["id"] = ref.id
+    return payload
+
+
+@router.get("/status/{applicant_id}/latest")
+def get_latest_status(applicant_id: str):
+    db   = get_db()
+    docs = (
+        db.collection("applicant_statuses")
+        .where("applicant_id", "==", applicant_id)
+        .order_by("created_at")
+        .get()
+    )
+    if not docs:
+        return {"status": "Pre-screening", "applicant_id": applicant_id}
+    return doc_to_dict(docs[-1])
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -523,263 +466,3 @@ def get_onboarding_applicants():
     db   = get_db()
     docs = db.collection("applicants").where("hiring_status", "==", "Onboarding").get()
     return [doc_to_dict(d) for d in docs]
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# APPLICANT STATUSES
-# ═══════════════════════════════════════════════════════════════════════════════
-
-@router.post("/status/{applicant_id}", response_model=ApplicantStatusResponse)
-def create_status(applicant_id: str, status_data: ApplicantStatusResponse):
-    db = get_db()
-    if not db.collection("applicants").document(applicant_id).get().exists:
-        raise HTTPException(status_code=404, detail="Applicant not found")
-
-    payload = {
-        "applicant_id": applicant_id,
-        "status":       status_data.status,
-        "notes":        status_data.notes,
-        "created_at":   datetime.now(timezone.utc).isoformat(),
-    }
-    _, ref = db.collection("applicant_statuses").add(payload)
-    payload["id"] = ref.id
-    return payload
-
-
-@router.get("/status/{applicant_id}/latest")
-def get_latest_status(applicant_id: str):
-    db   = get_db()
-    docs = (
-        db.collection("applicant_statuses")
-        .where("applicant_id", "==", applicant_id)
-        .order_by("created_at")
-        .get()
-    )
-    if not docs:
-        return {"status": "Pre-screening", "applicant_id": applicant_id}
-    return doc_to_dict(docs[-1])
-=======
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from typing import List
-from sqlalchemy import desc
-from ..database import get_db
-from ..models import Applicant, ApplicantStatus , Job , Employee
-from app.schemas import UserResponse, ApplicantStatusResponse, UserUpdate, JobCreate, StatusUpdate
-
-
-router = APIRouter(
-    prefix="/api/admin",
-    tags=["Admin"]
-)
-# ----------------------------
-# RECRUITMENT MANAGEMENT ENDPOINTS   
-# ----------------------------
-
-@router.get("/applicants", response_model=List[UserResponse])
-def get_all_applicants(db: Session = Depends(get_db)):
-    applicants = db.query(Applicant).all()
-    return applicants
-
-@router.get("/applicants/{applicant_id}", response_model=UserResponse)
-def get_applicant(applicant_id: int, db: Session = Depends(get_db)):
-    """
-    Retrieve a single applicant by ID.
-    """
-    applicant = db.query(Applicant).filter(Applicant.id == applicant_id).first()
-    if not applicant:
-        raise HTTPException(status_code=404, detail="Applicant not found")
-    return applicant
-
-
-@router.put("/applicants/{applicant_id}", response_model=UserResponse)
-def update_applicant(applicant_id: int, applicant_data: UserUpdate, db: Session = Depends(get_db)):
-    """
-    Update applicant details.
-    Only fields provided in the request will be updated.
-    """
-    applicant = db.query(Applicant).filter(Applicant.id == applicant_id).first()
-    if not applicant:
-        raise HTTPException(status_code=404, detail="Applicant not found")
-
-    for key, value in applicant_data.dict(exclude_unset=True).items():
-        setattr(applicant, key, value)
-
-    db.commit()
-    db.refresh(applicant)
-    return applicant
-
-
-@router.patch("/applicants/{applicant_id}")
-def update_applicant_status(applicant_id: int, status_data: StatusUpdate, db: Session = Depends(get_db)):
-    # Find the applicant
-    db_applicant = db.query(Applicant).filter(Applicant.id == applicant_id).first()
-    if not db_applicant:
-        raise HTTPException(status_code=404, detail="Applicant not found")
-    
-    # Update only the status
-    db_applicant.hiring_status = status_data.hiring_status
-    db.commit()
-    db.refresh(db_applicant)
-    return db_applicant
-
-
-# ----------------------------
-# APPLICANT STATUS ENDPOINTS
-# ----------------------------
-
-@router.post("/status/{applicant_id}", response_model=ApplicantStatusResponse)
-def create_status(applicant_id: int, status_data: ApplicantStatusResponse, db: Session = Depends(get_db)):
-    """
-    Create a new status entry for a specific applicant.
-    """
-    applicant = db.query(Applicant).filter(Applicant.id == applicant_id).first()
-    if not applicant:
-        raise HTTPException(status_code=404, detail="Applicant not found")
-
-    new_status = ApplicantStatus(
-        applicant_id=applicant_id,
-        status=status_data.status,
-        notes=status_data.notes
-    )
-    db.add(new_status)
-    db.commit()
-    db.refresh(new_status)
-    return new_status
-
-
-@router.get("/status/{applicant_id}", response_model=List[ApplicantStatusResponse])
-def get_applicant_statuses(applicant_id: int, db: Session = Depends(get_db)):
-    """
-    Retrieve all status entries for a specific applicant.
-    """
-    statuses = db.query(ApplicantStatus).filter(ApplicantStatus.applicant_id == applicant_id).all()
-    if not statuses:
-        raise HTTPException(status_code=404, detail="No status records found")
-    return statuses
-
-
-@router.get("/status/{applicant_id}/latest")
-def get_latest_status(applicant_id: int, db: Session = Depends(get_db)):
-    status = db.query(ApplicantStatus).filter(
-        ApplicantStatus.applicant_id == applicant_id
-    ).order_by(ApplicantStatus.id.desc()).first()
-    
-    if not status:
-        return {"status": "Submitted", "applicant_id": applicant_id}
-    return status
-
-@router.delete("/applicants/{applicant_id}")
-def delete_applicant(applicant_id: int, db: Session = Depends(get_db)):
-    """
-    Delete an applicant and their associated status records.
-    """
-    # 1. Find the applicant
-    applicant = db.query(Applicant).filter(Applicant.id == applicant_id).first()
-    
-    if not applicant:
-        raise HTTPException(status_code=404, detail="Applicant not found")
-
-    try:
-        # 2. Delete related status records first (if not handled by Cascade Delete in DB)
-        db.query(ApplicantStatus).filter(ApplicantStatus.applicant_id == applicant_id).delete()
-        
-        # 3. Delete the applicant
-        db.delete(applicant)
-        
-        # 4. Commit changes
-        db.commit()
-        return {"message": f"Applicant {applicant_id} and related records deleted successfully"}
-        
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
-
-# ----------------------------
-# JOB POSITION ENDPOINTS
-# ----------------------------
-
-@router.get("/jobs")
-def get_all_jobs(db: Session = Depends(get_db)):
-    jobs = db.query(Job).all()
-    
-    for job in jobs:
-        # 1. Count current applicants for this job title
-        count = db.query(Applicant).filter(
-            Applicant.applied_position == job.title
-        ).count()
-        
-        # 2. Logic: If count >= limit and it's still "Open", close it
-        if count >= job.applicant_limit and job.status == "Open":
-            job.status = "Closed"
-            db.commit() # Save the change automatically
-            
-    return jobs
-    
-@router.post("/jobs")
-def create_job(job_data: JobCreate, db: Session = Depends(get_db)):
-    new_job = Job(**job_data.dict())
-    db.add(new_job)
-    db.commit()
-    db.refresh(new_job)
-    return new_job
-
-@router.put("/jobs/{job_id}")
-def update_job(job_id: int, job_data: JobCreate, db: Session = Depends(get_db)):
-    """Updates a job position using the request body"""
-    job = db.query(Job).filter(Job.id == job_id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    
-    # Dynamically update based on schema keys
-    for key, value in job_data.dict(exclude_unset=True).items():
-        setattr(job, key, value)
-    
-    db.commit()
-    db.refresh(job)
-    return job
-
-@router.delete("/jobs/{job_id}")
-def delete_job(job_id: int, db: Session = Depends(get_db)):
-    """Deletes a job position"""
-    job = db.query(Job).filter(Job.id == job_id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    
-    db.delete(job)
-    db.commit()
-    return {"message": "Job deleted successfully"}
-
-# ----------------------------
-# EMPLOYEE MANAGEMENT ENDPOINTS
-# ----------------------------
-
-@router.get("/employees")
-def get_all_employees(db: Session = Depends(get_db)):
-    """Fetches all staff from the database for the EmployeeTab"""
-    return db.query(Employee).all()
-
-@router.post("/employees")
-def create_employee(emp_data: dict, db: Session = Depends(get_db)):
-    """Saves a new staff member to the database"""
-    new_emp = Employee(
-        name=emp_data.get("name"),
-        role=emp_data.get("role"),
-        dept=emp_data.get("dept", "General")
-    )
-    db.add(new_emp)
-    db.commit()
-    db.refresh(new_emp)
-    return new_emp
-
-
-# ----------------------------
-# ONBOARDING MANAGEMENT ENDPOINTS
-# ----------------------------
-
-@router.get("/onboarding")
-def get_onboarding_applicants(db: Session = Depends(get_db)):
-    """Fetches all applicants currently in the onboarding process."""
-    # This filters for applicants with the status 'Onboarding'
-    return db.query(Applicant).filter(Applicant.hiring_status == "Onboarding").all()
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2

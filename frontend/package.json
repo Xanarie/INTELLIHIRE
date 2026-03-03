@@ -15,20 +15,14 @@
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-separator": "^1.1.8",
     "@radix-ui/react-slot": "^1.2.4",
-<<<<<<< HEAD
     "axios": "^1.13.4",
-=======
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide": "^0.562.0",
     "lucide-react": "^0.562.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.0",
-<<<<<<< HEAD
     "react-markdown": "^10.1.0",
-=======
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
     "react-router-dom": "^7.11.0",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7"

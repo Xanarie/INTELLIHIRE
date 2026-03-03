@@ -1,38 +1,21 @@
-<<<<<<< HEAD
 import React, { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-=======
-import React, { useState, useRef , useEffect } from "react";
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
 import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
-<<<<<<< HEAD
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { CheckCircle2, FileText, User, Globe, Briefcase, ChevronRight, Pencil, Loader2 } from "lucide-react";
-=======
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { CheckCircle2, FileText, User, Globe, Briefcase, ChevronRight, Pencil } from "lucide-react";
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
 
 const API_BASE_URL = "http://localhost:8000";
 
 const ApplicantHub = () => {
   const [step, setStep] = useState(1);
-<<<<<<< HEAD
   const location = useLocation();
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef(null);
@@ -58,76 +41,27 @@ const ApplicantHub = () => {
     axios.get(`${API_BASE_URL}/api/applicants/jobs`)
       .then(r => setAvailableJobs(r.data))
       .catch(console.error);
-=======
-  const fileInputRef = useRef(null);
-  const [availableJobs, setAvailableJobs] = useState([]);
-
-  const [formData, setFormData] = useState({
-    // Step 1
-    f_name: "",
-    l_name: "",
-    age: "",
-    email: "",
-    phone: "",
-    current_city: "",
-    current_province: "",
-    education: "",
-    home_address: "",
-    gender: "Male",
-    // Step 2
-    app_source: "",
-    stable_internet: "No",
-    isp: "",
-    // Step 3
-    applied_position: "",
-    resume: null,
-  });
-
-  useEffect(() => {
-    const fetchJobs = async () => {
-      try {
-        // Points to the public applicants/jobs endpoint
-        const res = await axios.get(`${API_BASE_URL}/api/applicants/jobs`);
-        setAvailableJobs(res.data);
-      } catch (err) {
-        console.error("Error fetching jobs:", err);
-      }
-    };
-    fetchJobs();
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
   }, []);
 
   const nextStep = () => setStep((s) => s + 1);
   const prevStep = () => setStep((s) => s - 1);
-<<<<<<< HEAD
-=======
-  
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
 
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
 
-<<<<<<< HEAD
-  // Phone: strip any non-digit character before storing
   const handlePhoneChange = (e) => {
     const digits = e.target.value.replace(/\D/g, "");
     setFormData({ ...formData, phone: digits });
   };
 
-=======
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
   const handleFileChange = (e) =>
     setFormData({ ...formData, resume: e.target.files[0] });
 
   const handleSubmit = async () => {
     if (!formData.resume) return alert("Please upload your resume");
-<<<<<<< HEAD
     if (submitting) return;
 
     setSubmitting(true);
-=======
-
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
     const data = new FormData();
     Object.entries(formData).forEach(([k, v]) => {
       if (v !== null) data.append(k, v);
@@ -137,394 +71,195 @@ const ApplicantHub = () => {
       await axios.post(`${API_BASE_URL}/api/applicants/`, data, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-<<<<<<< HEAD
       setStep(5);
     } catch (err) {
       alert("Submission failed. Please check all fields.");
+      console.error(err);
     } finally {
       setSubmitting(false);
-=======
-      setStep(5); // Success is now Step 5
-    } catch (err) {
-      alert("Submission failed. Please check all fields.");
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
     }
   };
 
+  const StepDot = ({ n }) => (
+    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-all ${
+      step === n ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 scale-110"
+      : step > n  ? "bg-emerald-100 text-emerald-600"
+                  : "bg-slate-100 text-slate-400"
+    }`}>{step > n ? "✓" : n}</div>
+  );
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-10">
-      <Card className="w-full max-w-2xl shadow-2xl border-none rounded-[2rem] overflow-hidden">
-        <CardHeader className="bg-white pb-8 pt-10 text-center">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50/30 to-slate-100 flex items-center justify-center p-4">
+      <Card className="w-full max-w-2xl shadow-2xl border-0 rounded-3xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-8 py-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <CardTitle className="text-2xl font-black tracking-tight">IntelliHire</CardTitle>
+              <p className="text-emerald-100 text-sm font-medium mt-0.5">Applicant Portal</p>
+            </div>
+            <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
+              <Briefcase size={22} className="text-white" />
+            </div>
+          </div>
           {step < 5 && (
-            <>
-              <CardTitle className="text-2xl font-black text-slate-800 tracking-tight">
-                {step === 1 && "Basic Information"}
-                {step === 2 && "Application Source"}
-                {step === 3 && "Position Selection"}
-                {step === 4 && "Review Application"}
-              </CardTitle>
-              <div className="flex justify-center gap-2 mt-4">
-                {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className={`h-1.5 w-12 rounded-full transition-all duration-500 ${step >= i ? "bg-emerald-500" : "bg-slate-100"}`} />
-                ))}
-              </div>
-            </>
+            <div className="flex items-center gap-3">
+              {[1, 2, 3, 4].map(n => (
+                <React.Fragment key={n}>
+                  <StepDot n={n} />
+                  {n < 4 && <div className={`flex-1 h-0.5 rounded-full transition-all ${step > n ? "bg-white" : "bg-white/30"}`} />}
+                </React.Fragment>
+              ))}
+            </div>
           )}
         </CardHeader>
 
-        <CardContent className="p-10 pt-0 space-y-8">
-<<<<<<< HEAD
+        <CardContent className="px-8 py-6 space-y-5">
 
-          {/* STEP 1 */}
-=======
-          {/* STEP 1: BASIC INFORMATION */}
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
+          {/* STEP 1: Personal Info */}
           {step === 1 && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="space-y-4 animate-in slide-in-from-right duration-300">
+              <h2 className="text-xl font-black text-slate-800 flex items-center gap-2"><User size={20} className="text-emerald-500" /> Personal Information</h2>
+              <Separator />
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>First Name</Label>
-                  <Input name="f_name" placeholder="Enter first name" onChange={handleChange} value={formData.f_name} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Last Name</Label>
-                  <Input name="l_name" placeholder="Enter last name" onChange={handleChange} value={formData.l_name} />
-                </div>
+                <div><Label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">First Name</Label><Input name="f_name" value={formData.f_name} onChange={handleChange} placeholder="Juan" className="rounded-xl h-11" /></div>
+                <div><Label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Last Name</Label><Input name="l_name" value={formData.l_name} onChange={handleChange} placeholder="Dela Cruz" className="rounded-xl h-11" /></div>
               </div>
-<<<<<<< HEAD
-=======
-
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Age</Label>
-                  <Input name="age" type="number" placeholder="Enter age" onChange={handleChange} value={formData.age} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Email Address</Label>
-                  <Input name="email" type="email" placeholder="email@example.com" onChange={handleChange} value={formData.email} />
+                <div><Label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Age</Label><Input name="age" type="number" value={formData.age} onChange={handleChange} placeholder="25" className="rounded-xl h-11" /></div>
+                <div>
+                  <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Gender</Label>
+                  <RadioGroup value={formData.gender} onValueChange={v => setFormData({...formData, gender: v})} className="flex gap-4 mt-2">
+                    {["Male","Female","Other"].map(g => (
+                      <div key={g} className="flex items-center gap-2">
+                        <RadioGroupItem value={g} id={g} />
+                        <Label htmlFor={g} className="text-sm font-medium cursor-pointer">{g}</Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
                 </div>
               </div>
-<<<<<<< HEAD
+              <div><Label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Email Address</Label><Input name="email" type="email" value={formData.email} onChange={handleChange} placeholder="juan@email.com" className="rounded-xl h-11" /></div>
+              <div><Label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Phone Number</Label><Input name="phone" value={formData.phone} onChange={handlePhoneChange} placeholder="09XXXXXXXXX" className="rounded-xl h-11" /></div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Contact Number</Label>
-                  <Input
-                    name="phone"
-                    type="tel"
-                    inputMode="numeric"
-                    placeholder="09XXXXXXXXX"
-                    onChange={handlePhoneChange}
-                    value={formData.phone}
-                    maxLength={11}
-                  />
-=======
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Contact Number</Label>
-                  <Input name="phone" placeholder="09XXXXXXXXX" onChange={handleChange} value={formData.phone} />
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
-                </div>
-                <div className="space-y-2">
-                  <Label>Highest Educational Attainment</Label>
-                  <Select onValueChange={(v) => setFormData({ ...formData, education: v })} value={formData.education}>
-                    <SelectTrigger><SelectValue placeholder="Select education level" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="High School Graduate">High School Graduate</SelectItem>
-                      <SelectItem value="College Undergraduate">College Undergraduate</SelectItem>
-                      <SelectItem value="Bachelor's Degree">Bachelor's Degree</SelectItem>
-                      <SelectItem value="Master's Degree">Master's Degree</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <div><Label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">City</Label><Input name="current_city" value={formData.current_city} onChange={handleChange} placeholder="Cebu City" className="rounded-xl h-11" /></div>
+                <div><Label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Province</Label><Input name="current_province" value={formData.current_province} onChange={handleChange} placeholder="Cebu" className="rounded-xl h-11" /></div>
               </div>
-<<<<<<< HEAD
-=======
-
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Current City</Label>
-                  <Input name="current_city" placeholder="e.g. Cebu City" onChange={handleChange} value={formData.current_city} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Current Province</Label>
-                  <Input name="current_province" placeholder="e.g. Cebu" onChange={handleChange} value={formData.current_province} />
-                </div>
+              <div><Label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Home Address</Label><Input name="home_address" value={formData.home_address} onChange={handleChange} placeholder="123 Main St, Brgy..." className="rounded-xl h-11" /></div>
+              <div>
+                <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Education</Label>
+                <Select value={formData.education} onValueChange={v => setFormData({...formData, education: v})}>
+                  <SelectTrigger className="rounded-xl h-11"><SelectValue placeholder="Select highest education" /></SelectTrigger>
+                  <SelectContent>
+                    {["High School","Vocational/Technical","Some College","Bachelor's Degree","Master's Degree","Doctorate"].map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
-<<<<<<< HEAD
-=======
-
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
-              <div className="space-y-2">
-                <Label>Complete Home Address</Label>
-                <Input name="home_address" placeholder="Unit/Street/Barangay" onChange={handleChange} value={formData.home_address} />
-              </div>
-<<<<<<< HEAD
-              <div className="space-y-3">
-                <Label>Gender</Label>
-                <RadioGroup value={formData.gender} onValueChange={(v) => setFormData({ ...formData, gender: v })} className="flex gap-6">
-                  <div className="flex items-center space-x-2"><RadioGroupItem value="Male" id="m" /><Label htmlFor="m" className="font-normal">Male</Label></div>
-                  <div className="flex items-center space-x-2"><RadioGroupItem value="Female" id="f" /><Label htmlFor="f" className="font-normal">Female</Label></div>
-                </RadioGroup>
-              </div>
-=======
-
-              <div className="space-y-3">
-                <Label>Gender</Label>
-                <RadioGroup value={formData.gender} onValueChange={(v) => setFormData({ ...formData, gender: v })} className="flex gap-6">
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="Male" id="m" />
-                    <Label htmlFor="m" className="font-normal">Male</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="Female" id="f" />
-                    <Label htmlFor="f" className="font-normal">Female</Label>
-                  </div>
-                </RadioGroup>
-              </div>
-
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
-              <Button className="w-full bg-emerald-500 hover:bg-emerald-600 h-12 rounded-xl text-lg font-bold" onClick={nextStep}>
-                Next Step
+              <Button className="w-full bg-emerald-500 hover:bg-emerald-600 h-12 rounded-xl font-black text-white shadow-lg shadow-emerald-500/20 gap-2 mt-2" onClick={nextStep}>
+                Next: Background Info <ChevronRight size={18} />
               </Button>
             </div>
           )}
 
-<<<<<<< HEAD
-          {/* STEP 2 */}
-=======
-          {/* STEP 2: APPLICATION SOURCE & INTERNET */}
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
+          {/* STEP 2: Background */}
           {step === 2 && (
-            <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-              <div className="space-y-4">
-                <Label className="text-lg font-bold">Application Source</Label>
-                <div className="space-y-2">
-<<<<<<< HEAD
-                  <Label className="text-slate-500">How did you find this job posting?</Label>
-                  <Select onValueChange={(v) => setFormData({ ...formData, app_source: v })} value={formData.app_source}>
-                    <SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Facebook">Facebook</SelectItem>
-                      <SelectItem value="LinkedIn">LinkedIn</SelectItem>
-                      <SelectItem value="Indeed">Indeed</SelectItem>
-                      <SelectItem value="Company Website">Company Website</SelectItem>
-                      <SelectItem value="Referral">Referral</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+            <div className="space-y-4 animate-in slide-in-from-right duration-300">
+              <h2 className="text-xl font-black text-slate-800 flex items-center gap-2"><Globe size={20} className="text-emerald-500" /> Background Information</h2>
               <Separator />
-=======
-                    <Label className="text-slate-500">How did you find this job posting?</Label>
-                    <Select onValueChange={(v) => setFormData({ ...formData, app_source: v })} value={formData.app_source}>
-                    <SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="Facebook">Facebook</SelectItem>
-                        <SelectItem value="LinkedIn">LinkedIn</SelectItem>
-                        <SelectItem value="Indeed">Indeed</SelectItem>
-                        <SelectItem value="Company Website">Company Website</SelectItem>
-                        <SelectItem value="Referral">Referral</SelectItem>
-                    </SelectContent>
-                    </Select>
-                </div>
+              <div>
+                <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">How did you hear about us?</Label>
+                <Select value={formData.app_source} onValueChange={v => setFormData({...formData, app_source: v})}>
+                  <SelectTrigger className="rounded-xl h-11"><SelectValue placeholder="Select source" /></SelectTrigger>
+                  <SelectContent>
+                    {["Facebook","JobStreet","LinkedIn","Referral","Walk-in","Company Website","Other"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
-
-              <Separator />
-
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
-              <div className="space-y-6">
-                <Label className="text-lg font-bold">Internet Capability</Label>
-                <div className="space-y-3">
-                  <Label className="text-slate-500">Do you have a stable home internet?</Label>
-                  <RadioGroup value={formData.stable_internet} onValueChange={(v) => setFormData({ ...formData, stable_internet: v })} className="flex gap-6">
-<<<<<<< HEAD
-                    <div className="flex items-center space-x-2"><RadioGroupItem value="Yes" id="iy" /><Label htmlFor="iy" className="font-normal">Yes</Label></div>
-                    <div className="flex items-center space-x-2"><RadioGroupItem value="No" id="in" /><Label htmlFor="in" className="font-normal">No</Label></div>
-                  </RadioGroup>
-                </div>
-=======
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="Yes" id="iy" />
-                      <Label htmlFor="iy" className="font-normal">Yes</Label>
+              <div>
+                <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Do you have stable internet?</Label>
+                <RadioGroup value={formData.stable_internet} onValueChange={v => setFormData({...formData, stable_internet: v})} className="flex gap-6 mt-2">
+                  {["Yes","No"].map(v => (
+                    <div key={v} className="flex items-center gap-2">
+                      <RadioGroupItem value={v} id={`internet-${v}`} />
+                      <Label htmlFor={`internet-${v}`} className="text-sm font-medium cursor-pointer">{v}</Label>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="No" id="in" />
-                      <Label htmlFor="in" className="font-normal">No</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
-                {formData.stable_internet === "Yes" && (
-                  <div className="space-y-2 animate-in zoom-in-95 duration-300">
-                    <Label>Internet Provider</Label>
-                    <Select onValueChange={(v) => setFormData({ ...formData, isp: v })} value={formData.isp}>
-                      <SelectTrigger><SelectValue placeholder="Choose Provider" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Converge">Converge</SelectItem>
-                        <SelectItem value="PLDT">PLDT</SelectItem>
-                        <SelectItem value="Globe">Globe</SelectItem>
-                        <SelectItem value="Starlink">Starlink</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                  ))}
+                </RadioGroup>
               </div>
-<<<<<<< HEAD
-=======
-
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
-              <div className="flex gap-4">
-                <Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={prevStep}>Previous</Button>
-                <Button className="flex-[2] bg-emerald-500 hover:bg-emerald-600 h-12 rounded-xl font-bold" onClick={nextStep}>Next Step</Button>
-              </div>
-            </div>
-          )}
-
-<<<<<<< HEAD
-          {/* STEP 3 */}
-=======
-          {/* STEP 3: POSITION & RESUME */}
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
-          {step === 3 && (
-            <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-              <div className="space-y-4">
-                <Label className="text-lg font-bold">Position Selection</Label>
-<<<<<<< HEAD
-                <div className="space-y-2">
-                  <Label className="text-slate-500">What position are you applying for?</Label>
-                  <Select onValueChange={(v) => setFormData({ ...formData, applied_position: v })} value={formData.applied_position}>
-                    <SelectTrigger><SelectValue placeholder="Select desired role" /></SelectTrigger>
-                    <SelectContent>
-                      {availableJobs.length > 0
-                        ? availableJobs.map((job) => (
-                          <SelectItem key={job.id} value={job.title}>{job.title}</SelectItem>
-                        ))
-                        : <SelectItem disabled value="none">No positions currently open</SelectItem>
-                      }
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <Separator />
-=======
-                  <div className="space-y-2">
-                    <Label className="text-slate-500">What position are you applying for?</Label>
-        
-              {/* NEW DYNAMIC SELECT STARTS HERE */}
-              <Select 
-                onValueChange={(v) => setFormData({ ...formData, applied_position: v })} 
-                value={formData.applied_position}
-              >
-              <SelectTrigger><SelectValue placeholder="Select desired role" /></SelectTrigger>
-              <SelectContent>
-                {availableJobs.length > 0 ? (
-                availableJobs.map((job) => (
-                <SelectItem key={job.id} value={job.title}>
-                  {job.title}
-                </SelectItem>
-              ))
-              ) : (
-              <SelectItem disabled value="none">No positions currently open</SelectItem>
+              {formData.stable_internet === "Yes" && (
+                <div><Label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">ISP Provider</Label><Input name="isp" value={formData.isp} onChange={handleChange} placeholder="PLDT, Globe, Sky..." className="rounded-xl h-11" /></div>
               )}
-              </SelectContent>
-              </Select>
-              </div>
-            </div>
-
-              <Separator />
-
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
-              <div className="space-y-4">
-                <Label className="text-lg font-bold">Resume Upload</Label>
-                <div
-                  onClick={() => fileInputRef.current.click()}
-                  className="border-2 border-dashed border-slate-200 rounded-[1.5rem] p-10 text-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/30 transition-all group"
-                >
-                  <input hidden ref={fileInputRef} type="file" accept=".pdf" onChange={handleFileChange} />
-                  <FileText className="mx-auto h-10 w-10 text-slate-300 group-hover:text-emerald-500 group-hover:scale-110 transition-all mb-2" />
-                  <p className="text-sm font-medium text-slate-600">
-                    {formData.resume ? formData.resume.name : "Click to select your Resume (PDF)"}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-1">Maximum file size: 5MB</p>
-                </div>
-              </div>
-<<<<<<< HEAD
-=======
-
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
-              <div className="flex gap-4">
-                <Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={prevStep}>Previous</Button>
-                <Button className="flex-[2] bg-emerald-500 hover:bg-emerald-600 h-12 rounded-xl font-bold" onClick={nextStep}>Review Application</Button>
+              <div className="flex gap-3 mt-2">
+                <Button variant="outline" className="flex-1 h-12 rounded-xl border-slate-200 font-bold" onClick={prevStep}>Back</Button>
+                <Button className="flex-[2] bg-emerald-500 hover:bg-emerald-600 h-12 rounded-xl font-black text-white shadow-lg shadow-emerald-500/20 gap-2" onClick={nextStep}>Next: Position & Resume <ChevronRight size={18} /></Button>
               </div>
             </div>
           )}
 
-<<<<<<< HEAD
-          {/* STEP 4: REVIEW */}
-          {step === 4 && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-              <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100/50 flex items-center gap-3">
-                <div className="bg-emerald-500 rounded-full p-1 text-white"><CheckCircle2 size={16} /></div>
-                <p className="text-xs text-emerald-800 font-medium">Almost there! Please review your details before submitting.</p>
+          {/* STEP 3: Position & Resume */}
+          {step === 3 && (
+            <div className="space-y-4 animate-in slide-in-from-right duration-300">
+              <h2 className="text-xl font-black text-slate-800 flex items-center gap-2"><Briefcase size={20} className="text-emerald-500" /> Position & Resume</h2>
+              <Separator />
+              <div>
+                <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Applied Position</Label>
+                <Select value={formData.applied_position} onValueChange={v => setFormData({...formData, applied_position: v})}>
+                  <SelectTrigger className="rounded-xl h-11"><SelectValue placeholder="Select a position" /></SelectTrigger>
+                  <SelectContent>
+                    {availableJobs.map(j => <SelectItem key={j.id || j.title} value={j.title}>{j.title}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
-=======
-          {/* STEP 4: REVIEW & EDIT SLIDE */}
-          {step === 4 && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-              <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100/50 flex items-center gap-3">
-                <div className="bg-emerald-500 rounded-full p-1 text-white"><CheckCircle2 size={16}/></div>
-                <p className="text-xs text-emerald-800 font-medium">Almost there! Please review your details before submitting.</p>
+              <div>
+                <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Upload Resume (PDF)</Label>
+                <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} className="hidden" />
+                <button onClick={() => fileInputRef.current?.click()} className={`w-full h-28 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 transition-all ${formData.resume ? "border-emerald-400 bg-emerald-50 text-emerald-700" : "border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 text-slate-400"}`}>
+                  <FileText size={28} />
+                  <span className="text-sm font-bold">{formData.resume ? formData.resume.name : "Click to upload resume"}</span>
+                  <span className="text-xs">{formData.resume ? "Click to change file" : "PDF, DOC, DOCX accepted"}</span>
+                </button>
               </div>
+              <div className="flex gap-3 mt-2">
+                <Button variant="outline" className="flex-1 h-12 rounded-xl border-slate-200 font-bold" onClick={prevStep}>Back</Button>
+                <Button className="flex-[2] bg-emerald-500 hover:bg-emerald-600 h-12 rounded-xl font-black text-white shadow-lg shadow-emerald-500/20 gap-2" onClick={nextStep}>Review Application <ChevronRight size={18} /></Button>
+              </div>
+            </div>
+          )}
 
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8 bg-white border border-slate-100 p-6 rounded-[1.5rem] shadow-sm">
-                <ReviewItem icon={User} label="Full Name" value={`${formData.f_name} ${formData.l_name}`} />
-                <ReviewItem icon={Globe} label="Email Address" value={formData.email} />
-                <ReviewItem icon={Briefcase} label="Applied Position" value={formData.applied_position} />
-                <ReviewItem icon={Globe} label="Education" value={formData.education} />
-                <ReviewItem icon={Globe} label="Internet" value={`${formData.stable_internet} (${formData.isp || 'N/A'})`} />
-                <ReviewItem icon={FileText} label="Resume" value={formData.resume?.name} />
+          {/* STEP 4: Review */}
+          {step === 4 && (
+            <div className="space-y-4 animate-in slide-in-from-right duration-300">
+              <h2 className="text-xl font-black text-slate-800 flex items-center gap-2"><CheckCircle2 size={20} className="text-emerald-500" /> Review Your Application</h2>
+              <Separator />
+              <div className="bg-slate-50 rounded-2xl p-5 grid grid-cols-2 gap-4">
+                <ReviewItem icon={User}      label="Full Name"       value={`${formData.f_name} ${formData.l_name}`} />
+                <ReviewItem icon={User}      label="Age / Gender"    value={`${formData.age} / ${formData.gender}`} />
+                <ReviewItem icon={Globe}     label="Email"           value={formData.email} />
+                <ReviewItem icon={Globe}     label="Phone"           value={formData.phone} />
+                <ReviewItem icon={Globe}     label="City / Province" value={`${formData.current_city}, ${formData.current_province}`} />
+                <ReviewItem icon={Globe}     label="Education"       value={formData.education} />
+                <ReviewItem icon={Briefcase} label="Position"        value={formData.applied_position} />
+                <ReviewItem icon={FileText}  label="Resume"          value={formData.resume?.name} />
               </div>
-<<<<<<< HEAD
               <div className="flex gap-4 mt-4">
                 <Button variant="outline" className="flex-1 h-12 rounded-xl border-slate-200 text-slate-600 font-bold gap-2" onClick={() => setStep(1)}>
                   <Pencil size={16} /> Edit All
                 </Button>
                 <Button
-                  disabled={submitting}
-                  className="flex-[2] bg-emerald-500 hover:bg-emerald-600 h-12 rounded-xl font-black text-white shadow-lg shadow-emerald-500/20 gap-2 disabled:opacity-70"
+                  className="flex-[2] bg-emerald-500 hover:bg-emerald-600 h-12 rounded-xl font-black text-white shadow-lg shadow-emerald-500/20 gap-2"
                   onClick={handleSubmit}
+                  disabled={submitting}
                 >
                   {submitting ? (
-                    <>
-                      <Loader2 size={18} className="animate-spin" />
-                      Submitting…
-                    </>
+                    <><Loader2 size={18} className="animate-spin" /> Submitting…</>
                   ) : (
-                    <>
-                      Confirm & Submit Application <ChevronRight size={18} />
-                    </>
+                    <>Confirm & Submit Application <ChevronRight size={18} /></>
                   )}
-=======
-
-              <div className="flex gap-4 mt-4">
-                <Button variant="outline" className="flex-1 h-12 rounded-xl border-slate-200 text-slate-600 font-bold gap-2" onClick={() => setStep(1)}>
-                  <Pencil size={16}/> Edit All
-                </Button>
-                <Button className="flex-[2] bg-emerald-500 hover:bg-emerald-600 h-12 rounded-xl font-black text-white shadow-lg shadow-emerald-500/20 gap-2" onClick={handleSubmit}>
-                  Confirm & Submit Application <ChevronRight size={18}/>
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
                 </Button>
               </div>
             </div>
           )}
 
-          {/* STEP 5: SUCCESS */}
+          {/* STEP 5: Success */}
           {step === 5 && (
             <div className="text-center space-y-6 py-10 animate-in zoom-in duration-500">
               <div className="w-24 h-24 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-5xl mx-auto mb-4">✓</div>
@@ -537,20 +272,13 @@ const ApplicantHub = () => {
               </Button>
             </div>
           )}
-<<<<<<< HEAD
 
-=======
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
         </CardContent>
       </Card>
     </div>
   );
 };
 
-<<<<<<< HEAD
-=======
-// --- Helper Component for Review Items ---
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
 const ReviewItem = ({ icon: Icon, label, value }) => (
   <div className="space-y-1">
     <div className="flex items-center gap-2 text-slate-400">

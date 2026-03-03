@@ -1,6 +1,5 @@
 # Python (Backend)
 venv/
-<<<<<<< HEAD
 .venv/
 __pycache__/
 *.pyc
@@ -12,28 +11,16 @@ __pycache__/
 backend/serviceAccountKey.json
 serviceAccountKey.json
 *.json.key
-=======
-__pycache__/
-*.pyc
-.env
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
 
 # Node/React (Frontend)
 node_modules/
 dist/
-<<<<<<< HEAD
 dist-ssr/
 build/
 .eslintcache
 
 # Logs
 logs/
-=======
-build/
-.eslintcache
-# Logs
-logs
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -41,30 +28,19 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-<<<<<<< HEAD
 # Local dev
-=======
-node_modules
-dist
-dist-ssr
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
 *.local
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
-<<<<<<< HEAD
 .idea/
-=======
-.idea
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
-<<<<<<< HEAD
 Thumbs.db
 
 # AI/ML model files
@@ -76,5 +52,3 @@ backend/models/
 # OS
 .DS_Store
 desktop.ini
-=======
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2

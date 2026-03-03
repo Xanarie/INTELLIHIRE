@@ -1,5 +1,4 @@
 from pydantic import BaseModel, EmailStr
-<<<<<<< HEAD
 from typing import Optional, Any
 
 
@@ -37,34 +36,12 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 
-=======
-from typing import Optional, List
-
-
-class StatusUpdate(BaseModel):
-    hiring_status: str
-
-class UserResponse(BaseModel):
-    id: int
-    f_name: str
-    l_name: str
-    email: str
-    phone: str
-    applied_position: str
-    current_city: Optional[str] = None
-    hiring_status: Optional[str] = "Pre-screening"
-        
-    class Config:
-        from_attributes = True
-
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
 class UserUpdate(BaseModel):
     f_name: Optional[str] = None
     l_name: Optional[str] = None
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     applied_position: Optional[str] = None
-<<<<<<< HEAD
     recruiter_notes: Optional[str] = None
 
 
@@ -77,31 +54,20 @@ class ApplicantStatusUpdate(BaseModel):
 class ApplicantStatusResponse(BaseModel):
     id: Optional[str] = None
     applicant_id: str
-=======
-
-class ApplicantStatusResponse(BaseModel):
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
     status: str
     notes: Optional[str] = None
 
     class Config:
         from_attributes = True
 
-<<<<<<< HEAD
 
 # ── Jobs ──────────────────────────────────────────────────────────────────────
-=======
-class ApplicantStatusUpdate(BaseModel):
-    hiring_status: str = "Pending" 
-
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
 
 class JobCreate(BaseModel):
     title: str
     department: str
     status: str = "Open"
     applicant_limit: int = 50
-<<<<<<< HEAD
     job_summary: Optional[str] = None
     key_responsibilities: Optional[str] = None
     required_qualifications: Optional[str] = None
@@ -157,8 +123,3 @@ class EmployeeResponse(BaseModel):
 
 class StatusUpdate(BaseModel):
     hiring_status: str
-=======
-
-    class Config:
-        from_attributes = True
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2

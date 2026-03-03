@@ -1,5 +1,4 @@
 import os
-<<<<<<< HEAD
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 
@@ -74,7 +73,6 @@ async def create_applicant(
 
     # 3. Upload resume to Cloudinary
     resume_bytes  = await resume.read()
-    content_type  = resume.content_type or "application/pdf"
     upload_result = upload_resume(resume_bytes, resume.filename)
     download_url  = upload_result["download_url"]
     public_id     = upload_result["public_id"]
@@ -94,7 +92,7 @@ async def create_applicant(
         "ai_prescreening_summary": None, "ai_match_json": None,
         "ai_resume_score": None, "ai_resume_bucket": None, "ai_resume_score_json": None,
         "ai_job_match_score": None, "ai_job_match_bucket": None, "ai_job_match_json": None,
-        "ai_recommended_role": applied_position,  # default until AI runs
+        "ai_recommended_role": applied_position,
     }
     _, new_ref = db.collection("applicants").add(applicant_data)
     applicant_data["id"] = new_ref.id
@@ -132,62 +130,52 @@ async def create_applicant(
         except Exception as e:
             print(f"[AI] Resume score failed: {e}")
 
-        # ── Match against ALL open jobs in parallel ────────────────────────
-        open_jobs = db.collection("jobs").where("status", "==", "Open").get()
+        # Match against applied position + all open jobs in parallel
+        open_jobs     = db.collection("jobs").where("status", "==", "Open").get()
         scoreable_jobs = [doc_to_dict(j) for j in open_jobs if _has_description(doc_to_dict(j))]
 
         def _score_job(jd):
             try:
                 result = score_applicant(resume_focus_text, _job_full_text(jd))
-                return jd["title"], jd, result
+                return jd["title"], result
             except Exception as e:
-                print(f"[AI] Scoring job '{jd.get('title')}' failed: {e}")
-                return jd["title"], jd, None
+                print(f"[AI] Job score failed for '{jd.get('title')}': {e}")
+                return jd["title"], None
 
         best_title  = applied_position
         best_score  = -1.0
-        best_result = None
+        all_scores  = {}
         applied_result = None
 
-        if scoreable_jobs:
-            with ThreadPoolExecutor(max_workers=4) as pool:
-                futures = [pool.submit(_score_job, jd) for jd in scoreable_jobs]
-                for future in as_completed(futures):
-                    title, jd, result = future.result()
-                    if result is None:
-                        continue
-                    sc = float(result.get("score", 0.0))
-                    if title == applied_position:
-                        applied_result = result
-                    if sc > best_score:
-                        best_score  = sc
-                        best_title  = title
-                        best_result = result
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            futures = {pool.submit(_score_job, jd): jd for jd in scoreable_jobs}
+            for future in as_completed(futures):
+                title, result = future.result()
+                if result is None:
+                    continue
+                score = float(result.get("score", 0.0))
+                all_scores[title] = result
+                if score > best_score:
+                    best_score = score
+                    best_title = title
+                if title == applied_position:
+                    applied_result = result
 
-        # Store applied-position match (what the applicant chose)
         if applied_result:
             ai_updates["ai_job_match_score"]  = float(applied_result.get("score", 0.0))
-            ai_updates["ai_job_match_bucket"] = str(applied_result.get("bucket", "Needs Review"))
+            ai_updates["ai_job_match_bucket"] = str(applied_result.get("bucket", "Weak"))
             ai_updates["ai_job_match_json"]   = applied_result
-            ai_updates["ai_match_json"]       = applied_result
 
-        # Store best role found across all jobs
         ai_updates["ai_recommended_role"] = best_title
 
-        # Build summary input (use applied-position match for score context)
-        summary_match = applied_result or best_result or {
-            "score":      ai_updates.get("ai_resume_score", 0.0),
-            "bucket":     ai_updates.get("ai_resume_bucket", "Weak"),
-            "knockout":   False, "breakdown": {},
-            "must_haves": {"matched": [], "missing": []}, "mode": "resume_only",
-        }
-
+        # Prescreen summary
         try:
+            summary_match = applied_result or (all_scores.get(best_title) if all_scores else None)
             prescreen = summarize_prescreen(
                 resume_focus_text=resume_focus_text,
                 job_title=applied_position,
                 match_result=summary_match,
-                suitable_role=best_title,          # ← AI-chosen best role
+                suitable_role=best_title,
             )
             ai_updates["ai_prescreening_summary"] = prescreen.get("summary", "")
             if not applied_result:
@@ -220,124 +208,3 @@ def get_public_jobs():
     db   = get_db()
     docs = db.collection("jobs").where("status", "==", "Open").get()
     return [doc_to_dict(d) for d in docs]
-=======
-import uuid
-import shutil
-from fastapi import APIRouter, Depends, HTTPException, Form, File, UploadFile
-from sqlalchemy.orm import Session
-from typing import Optional, List
-from ..database import get_db
-from ..models import Applicant, Job  # 1. ADDED Job here
-from app.schemas import ApplicantStatusUpdate, UserResponse
-
-router = APIRouter(
-    prefix="/api/applicants",
-    tags=["Applicant Hub"]
-)
-
-UPLOAD_DIR = "resumes"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-# --- APPLICANT ACTIONS ---
-@router.post("/", response_model=UserResponse)
-async def create_applicant(
-    f_name: str = Form(...),
-    l_name: str = Form(...),
-    email: str = Form(...),
-    phone: str = Form(...),
-    age: int = Form(...),
-    gender: str = Form(...),
-    current_city: str = Form(...),
-    current_province: str = Form(...),
-    home_address: str = Form(...),
-    education: str = Form(...),
-    app_source: str = Form(...),
-    stable_internet: str = Form(...),
-    applied_position: str = Form(...),
-    isp: Optional[str] = Form(None),
-    resume: UploadFile = File(...),
-    db: Session = Depends(get_db)
-):
-
-    # Check job applicant limit
-    job = db.query(Job).filter(Job.title == applied_position).first()
-    
-    if job:
-        current_count = db.query(Applicant).filter(
-            Applicant.applied_position == applied_position
-        ).count()
-        
-        if current_count >= job.applicant_limit:
-            job.status = "Closed"  
-            db.commit()
-
-    # Email duplication check
-    if db.query(Applicant).filter(Applicant.email == email).first():
-        raise HTTPException(status_code=400, detail="Email already registered")
-
-    # Resume upload
-    file_ext = resume.filename.split('.')[-1]
-    resume_filename = f"{uuid.uuid4()}.{file_ext}"
-    file_path = os.path.join(UPLOAD_DIR, resume_filename)
-
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(resume.file, buffer)
-
-    # Create applicant record
-    new_user = Applicant(
-        f_name=f_name,
-        l_name=l_name,
-        email=email,
-        phone=phone,
-        age=age,
-        gender=gender,
-        current_city=current_city,
-        current_province=current_province,
-        home_address=home_address,
-        education=education,
-        app_source=app_source,
-        stable_internet=stable_internet,
-        isp=isp,
-        applied_position=applied_position,
-        resume_path=file_path
-    )
-
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-
-    final_count = db.query(Applicant).filter(Applicant.applied_position == applied_position).count()
-    if job and final_count >= job.applicant_limit:
-        job.status = "Closed"
-        db.commit()
-    return new_user
-
-
-@router.get("/all", response_model=List[UserResponse])
-async def get_all_applicants(db: Session = Depends(get_db)):
-    """Fetches all applicant records for the Admin Dashboard"""
-    return db.query(Applicant).all()
-
-@router.patch("/{applicant_id}", response_model=UserResponse)
-def update_applicant_status(
-    applicant_id: int,
-    payload: ApplicantStatusUpdate,
-    db: Session = Depends(get_db)
-):
-    applicant = db.query(Applicant).filter(Applicant.id == applicant_id).first()
-    if not applicant:
-        raise HTTPException(status_code=404, detail="Applicant not found")
-
-    applicant.hiring_status = payload.hiring_status
-    db.commit()
-    db.refresh(applicant)
-    return applicant
-
-@router.get("/jobs")
-def get_public_jobs(db: Session = Depends(get_db)):
-    """
-    Fetches ONLY 'Open' jobs for the Applicant Hub dropdown.
-    """
-    # This filter is the key!
-    return db.query(Job).filter(Job.status == "Open").all()
->>>>>>> 05ef615b6d098f2c2a9b43995a0643c6bbcd19a2
