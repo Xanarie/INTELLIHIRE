@@ -1,12 +1,11 @@
+// frontend/src/components/pages/JobPostingPage.jsx
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { api } from '@/config/api';
 import {
   Briefcase, MapPin, Building2, ClipboardList, Star,
   Lightbulb, FileText, ChevronRight, Loader2, AlertCircle, Info
 } from 'lucide-react';
-
-const API_BASE = 'http://localhost:8000/api/admin';
 
 const DEPT_COLORS = {
   IT:          'bg-blue-50 text-blue-700 border-blue-100',
@@ -47,153 +46,101 @@ const SectionBlock = ({ icon: Icon, color, title, content }) => {
 const JobPostingPage = () => {
   const { jobId } = useParams();
   const navigate  = useNavigate();
-  const [job, setJob]       = useState(null);
+  const [job, setJob]         = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError]   = useState(null);
+  const [error, setError]     = useState(null);
 
   useEffect(() => {
-    axios.get(`${API_BASE}/jobs/${jobId}`)
+    api.get(`/jobs/${jobId}`)
       .then(r => { setJob(r.data); setLoading(false); })
       .catch(() => { setError('This job posting could not be found.'); setLoading(false); });
   }, [jobId]);
 
   if (loading) return (
     <div className="min-h-screen bg-[#F3F7F6] flex items-center justify-center">
-      <div className="flex flex-col items-center gap-3">
-        <Loader2 size={28} className="text-[#2A5C9A] animate-spin" />
-        <p className="text-sm text-slate-400 font-medium">Loading job posting…</p>
-      </div>
+      <Loader2 size={32} className="animate-spin text-[#2A5C9A]" />
     </div>
   );
 
-  if (error || !job) return (
+  if (error) return (
     <div className="min-h-screen bg-[#F3F7F6] flex items-center justify-center">
-      <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-10 text-center max-w-sm">
-        <AlertCircle size={32} className="text-rose-400 mx-auto mb-3" />
-        <p className="font-black text-slate-700 mb-1">Job Not Found</p>
-        <p className="text-sm text-slate-400">{error || 'This posting may have been removed.'}</p>
+      <div className="text-center space-y-3">
+        <AlertCircle size={40} className="text-rose-400 mx-auto" />
+        <p className="text-slate-600 font-medium">{error}</p>
+        <button onClick={() => navigate('/')} className="text-[#2A5C9A] text-sm font-bold hover:underline">
+          Go back to apply
+        </button>
       </div>
     </div>
   );
-
-  const isClosed = job.status === 'Closed';
 
   return (
     <div className="min-h-screen bg-[#F3F7F6] font-sans">
-
-      {/* ── Top nav strip ───────────────────────────────────────────── */}
-      <div className="bg-white border-b border-slate-100 px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-emerald-500 rounded-xl flex items-center justify-center text-white font-black text-xs shadow">
-            IH
+      {/* Header */}
+      <header className="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-[#2A5C9A] rounded-xl flex items-center justify-center">
+            <Briefcase size={14} className="text-white" />
           </div>
-          <span className="font-bold text-slate-700 text-sm">IntelliHire</span>
+          <span className="text-sm font-black text-slate-800">IntelliHire</span>
         </div>
-        <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border ${
-          job.status === 'Open'   ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-          job.status === 'Draft'  ? 'bg-amber-50 text-amber-600 border-amber-100' :
-          'bg-rose-50 text-rose-600 border-rose-100'
-        }`}>
-          {job.status}
-        </span>
-      </div>
+        <button
+          onClick={() => navigate('/', { state: { preselectedRole: job?.title } })}
+          className="flex items-center gap-2 px-5 py-2.5 bg-[#2A5C9A] text-white text-sm font-black rounded-2xl hover:bg-[#1e4470] transition-colors"
+        >
+          Apply Now <ChevronRight size={14} />
+        </button>
+      </header>
 
-      {/* ── Hero ────────────────────────────────────────────────────── */}
-      <div className="max-w-3xl mx-auto px-6 pt-12 pb-8">
-        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm px-10 py-9 mb-6">
-          <div className="flex items-start gap-5">
-            <div className="w-14 h-14 bg-[#E8F0F8] rounded-2xl flex items-center justify-center shrink-0">
-              <Briefcase size={22} className="text-[#2A5C9A]" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-2xl font-black text-slate-800 leading-tight">{job.title}</h1>
-              <div className="flex flex-wrap items-center gap-2 mt-3">
-                {job.department && (
-                  <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${deptBadge(job.department)}`}>
-                    {job.department}
+      <main className="max-w-3xl mx-auto px-6 py-10 space-y-6">
+        {/* Job title card */}
+        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8">
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div>
+              <h1 className="text-2xl font-black text-slate-900 leading-tight">{job.title}</h1>
+              <div className="flex items-center gap-3 mt-2 flex-wrap">
+                <span className={`text-xs font-bold px-3 py-1 rounded-full border ${deptBadge(job.department)}`}>
+                  {job.department}
+                </span>
+                {job.status && (
+                  <span className={`text-xs font-bold px-3 py-1 rounded-full ${job.status === 'Open' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                    {job.status}
                   </span>
                 )}
-                <div className="flex items-center gap-1 text-[11px] text-slate-400">
-                  <Building2 size={10} />
-                  <span>ProgressPro Services Inc.</span>
-                </div>
-                <div className="flex items-center gap-1 text-[11px] text-slate-400">
-                  <MapPin size={10} />
-                  <span>Cebu, Philippines</span>
-                </div>
               </div>
             </div>
-            {job.applicant_limit && (
-              <div className="text-right shrink-0">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Openings</p>
-                <p className="text-2xl font-black text-[#2A5C9A]">{job.applicant_limit}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Summary */}
-          {job.job_summary && (
-            <div className="mt-6 pt-6 border-t border-slate-50">
-              <div className="flex items-center gap-2 mb-3">
-                <Info size={13} className="text-[#2A5C9A]" />
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">About this Role</p>
-              </div>
-              <p className="text-sm text-slate-600 leading-relaxed">{job.job_summary}</p>
-            </div>
-          )}
-        </div>
-
-        {/* ── Sections ────────────────────────────────────────────── */}
-        <div className="space-y-4">
-          <SectionBlock
-            icon={ClipboardList} color="bg-emerald-500"
-            title="Key Responsibilities"
-            content={job.key_responsibilities}
-          />
-          <SectionBlock
-            icon={Star} color="bg-amber-400"
-            title="Required Qualifications"
-            content={job.required_qualifications}
-          />
-          <SectionBlock
-            icon={Lightbulb} color="bg-violet-500"
-            title="Preferred Qualifications"
-            content={job.preferred_qualifications}
-          />
-          <SectionBlock
-            icon={FileText} color="bg-rose-400"
-            title="Key Competencies"
-            content={job.key_competencies}
-          />
-        </div>
-
-        {/* ── Spacer for sticky button ─────────────────────────── */}
-        <div className="h-28" />
-      </div>
-
-      {/* ── Sticky Apply bar ────────────────────────────────────────── */}
-      <div className="fixed bottom-0 inset-x-0 bg-white/90 backdrop-blur-md border-t border-slate-100 shadow-xl z-50">
-        <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-black text-slate-800">{job.title}</p>
-            <p className="text-[10px] text-slate-400">{job.department} · ProgressPro Services Inc.</p>
-          </div>
-          {isClosed ? (
-            <div className="px-8 py-3.5 bg-slate-100 text-slate-400 text-[11px] font-black uppercase tracking-widest rounded-2xl">
-              Applications Closed
-            </div>
-          ) : (
             <button
-              onClick={() => navigate('/', { state: { preselectedRole: job.title } })}
-              className="flex items-center gap-2 px-8 py-3.5 bg-[#10B981] hover:bg-[#059669] text-white text-[11px] font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-emerald-200 transition-all"
+              onClick={() => navigate('/', { state: { preselectedRole: job?.title } })}
+              className="shrink-0 flex items-center gap-2 px-5 py-2.5 bg-[#2A5C9A] text-white text-sm font-black rounded-2xl hover:bg-[#1e4470] transition-colors"
             >
-              Apply Here
-              <ChevronRight size={14} />
+              Apply <ChevronRight size={14} />
             </button>
+          </div>
+
+          {job.job_summary && (
+            <p className="text-sm text-slate-600 leading-relaxed border-t border-slate-50 pt-4 mt-4">
+              {job.job_summary}
+            </p>
           )}
         </div>
-      </div>
 
+        <SectionBlock icon={ClipboardList} color="bg-[#2A5C9A]"  title="Key Responsibilities"     content={job.key_responsibilities} />
+        <SectionBlock icon={Star}          color="bg-amber-400"   title="Required Qualifications"   content={job.required_qualifications} />
+        <SectionBlock icon={Info}          color="bg-violet-500"  title="Preferred Qualifications"  content={job.preferred_qualifications} />
+        <SectionBlock icon={Lightbulb}     color="bg-emerald-500" title="Key Competencies"          content={job.key_competencies} />
+
+        {/* CTA */}
+        <div className="bg-[#2A5C9A] rounded-[2rem] p-8 text-center text-white space-y-4">
+          <h2 className="text-xl font-black">Interested in this role?</h2>
+          <p className="text-blue-100 text-sm">Submit your application and our team will review your profile.</p>
+          <button
+            onClick={() => navigate('/', { state: { preselectedRole: job?.title } })}
+            className="inline-flex items-center gap-2 px-8 py-3 bg-white text-[#2A5C9A] font-black rounded-2xl hover:bg-blue-50 transition-colors"
+          >
+            <FileText size={16} /> Apply Now
+          </button>
+        </div>
+      </main>
     </div>
   );
 };

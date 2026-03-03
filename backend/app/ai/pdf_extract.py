@@ -318,11 +318,3 @@ def extract_resume_text(
         "sections": sections,
         "method": method,
     }
-
-def extract_resume_focus_text(pdf_path: str) -> str:  # NEW
-    """
-    Convenience wrapper: returns ONLY the focus_text.
-    This matches what applicants.py expects.
-    """  # NEW
-    data = extract_resume_text(pdf_path)  # NEW
-    return str(data.get("focus_text", ""))  # NEW

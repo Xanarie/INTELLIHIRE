@@ -1,7 +1,6 @@
+// frontend/src/hooks/useAdminData.js
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
-
-const API_BASE = 'http://localhost:8000/api/admin';
+import { api } from '@/config/api';
 
 const extractErrMessage = (err, fallback) => {
   const data = err?.response?.data;
@@ -23,8 +22,8 @@ export const useAdminData = () => {
     try {
       setLoading(true);
       const [appRes, empRes] = await Promise.all([
-        axios.get(`${API_BASE}/applicants`),
-        axios.get(`${API_BASE}/employees`).catch(err => {
+        api.get('/applicants'),
+        api.get('/employees').catch(err => {
           console.warn('Employees endpoint failed.', err?.response?.data ?? err);
           return { data: [] };
         }),
@@ -41,7 +40,7 @@ export const useAdminData = () => {
   const handleDeleteApplicant = useCallback(async (id) => {
     if (!window.confirm('Delete applicant?')) return { ok: false, message: 'Cancelled.' };
     try {
-      await axios.delete(`${API_BASE}/applicants/${id}`);
+      await api.delete(`/applicants/${id}`);
       setApplicants(prev => prev.filter(a => (a.id ?? a.applicantid) !== id));
       return { ok: true, message: 'Applicant deleted.' };
     } catch (err) {
@@ -53,7 +52,7 @@ export const useAdminData = () => {
 
   const handleSaveEmployee = useCallback(async (employeeData) => {
     try {
-      const res = await axios.post(`${API_BASE}/employees`, employeeData);
+      const res = await api.post('/employees', employeeData);
       const saved = res.data;
       setEmployees(prev => [saved, ...prev]);
       return { ok: true, message: 'Employee saved successfully.', employee: saved };

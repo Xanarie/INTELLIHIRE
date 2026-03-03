@@ -1,6 +1,7 @@
+// frontend/src/components/ApplicantHub.jsx
 import React, { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import axios from "axios";
+import { apiPublic } from "@/config/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,8 +12,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { CheckCircle2, FileText, User, Globe, Briefcase, ChevronRight, Pencil, Loader2 } from "lucide-react";
-
-const API_BASE_URL = "http://localhost:8000";
 
 const ApplicantHub = () => {
   const [step, setStep] = useState(1);
@@ -38,7 +37,7 @@ const ApplicantHub = () => {
   });
 
   useEffect(() => {
-    axios.get(`${API_BASE_URL}/api/applicants/jobs`)
+    apiPublic.get('/api/applicants/jobs')
       .then(r => setAvailableJobs(r.data))
       .catch(console.error);
   }, []);
@@ -68,7 +67,7 @@ const ApplicantHub = () => {
     });
 
     try {
-      await axios.post(`${API_BASE_URL}/api/applicants/`, data, {
+      await apiPublic.post('/api/applicants/', data, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setStep(5);
@@ -106,14 +105,14 @@ const ApplicantHub = () => {
               {[1, 2, 3, 4].map(n => (
                 <React.Fragment key={n}>
                   <StepDot n={n} />
-                  {n < 4 && <div className={`flex-1 h-0.5 rounded-full transition-all ${step > n ? "bg-white" : "bg-white/30"}`} />}
+                  {n < 4 && <div className={`flex-1 h-0.5 rounded-full transition-all ${step > n ? "bg-emerald-300" : "bg-white/20"}`} />}
                 </React.Fragment>
               ))}
             </div>
           )}
         </CardHeader>
 
-        <CardContent className="px-8 py-6 space-y-5">
+        <CardContent className="px-8 py-7">
 
           {/* STEP 1: Personal Info */}
           {step === 1 && (
@@ -128,11 +127,11 @@ const ApplicantHub = () => {
                 <div><Label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Age</Label><Input name="age" type="number" value={formData.age} onChange={handleChange} placeholder="25" className="rounded-xl h-11" /></div>
                 <div>
                   <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Gender</Label>
-                  <RadioGroup value={formData.gender} onValueChange={v => setFormData({...formData, gender: v})} className="flex gap-4 mt-2">
-                    {["Male","Female","Other"].map(g => (
-                      <div key={g} className="flex items-center gap-2">
-                        <RadioGroupItem value={g} id={g} />
-                        <Label htmlFor={g} className="text-sm font-medium cursor-pointer">{g}</Label>
+                  <RadioGroup value={formData.gender} onValueChange={v => setFormData({...formData, gender: v})} className="flex gap-6 mt-3">
+                    {["Male","Female"].map(v => (
+                      <div key={v} className="flex items-center gap-2">
+                        <RadioGroupItem value={v} id={`gender-${v}`} />
+                        <Label htmlFor={`gender-${v}`} className="text-sm font-medium cursor-pointer">{v}</Label>
                       </div>
                     ))}
                   </RadioGroup>
@@ -289,4 +288,4 @@ const ReviewItem = ({ icon: Icon, label, value }) => (
   </div>
 );
 
-export default ApplicantHub;
+export default ApplicantHub;  

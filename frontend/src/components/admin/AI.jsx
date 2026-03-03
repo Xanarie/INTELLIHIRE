@@ -1,9 +1,8 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import axios from 'axios';
+// frontend/src/components/admin/AI.jsx
+import React, { useState, useMemo, useEffect } from 'react';
+import { api } from '@/config/api';
 import { SlidersHorizontal, Trophy, Search, FileText, Sparkles, Briefcase, Loader2 } from 'lucide-react';
 import CandidateModal from '../modals/CandidateModal';
-
-const API_BASE_URL = 'http://localhost:8000/api/admin';
 
 const DEFAULT_WEIGHTS = { structure: 30, experience: 30, impact: 25, clarity: 15 };
 const WEIGHT_META = [
@@ -29,14 +28,15 @@ function recomputeScore(breakdown, weights) {
 
 function scoreColor(s) {
   if (s == null) return 'text-slate-300';
-  if (s >= 75) return 'text-emerald-600';
-  if (s >= 50) return 'text-amber-500';
+  if (s >= 75)   return 'text-emerald-600';
+  if (s >= 50)   return 'text-amber-500';
   return 'text-rose-500';
 }
+
 function scoreBg(s) {
   if (s == null) return 'bg-slate-50 border-slate-100';
-  if (s >= 75) return 'bg-emerald-50 border-emerald-100';
-  if (s >= 50) return 'bg-amber-50 border-amber-100';
+  if (s >= 75)   return 'bg-emerald-50 border-emerald-100';
+  if (s >= 50)   return 'bg-amber-50 border-amber-100';
   return 'bg-rose-50 border-rose-100';
 }
 
@@ -172,7 +172,7 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
     .slice(0, 10),
   [applicants, weights]);
 
-  // ── Smart Screen — calls backend to score ALL applicants per role ─────────
+  // ── Smart Screen ──────────────────────────────────────────────────────────
   const roleList = useMemo(() => {
     const seen = new Set();
     const list = [];
@@ -189,20 +189,18 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
 
   const [selectedRole, setSelectedRole] = useState('');
   const [screenFilter, setScreenFilter] = useState('all');
-  const [smartResults, setSmartResults]   = useState([]);
-  const [smartLoading, setSmartLoading]   = useState(false);
-  const [smartError, setSmartError]       = useState(null);
+  const [smartResults, setSmartResults] = useState([]);
+  const [smartLoading, setSmartLoading] = useState(false);
+  const [smartError, setSmartError]     = useState(null);
 
   useEffect(() => {
     if (!selectedRole && roleList.length) setSelectedRole(roleList[0]);
   }, [roleList]);
 
-  // When role changes or filter changes, fetch from backend (all mode) or compute locally (applied mode)
   useEffect(() => {
     if (!selectedRole) return;
 
     if (screenFilter === 'applied') {
-      // Local: just filter applicants who applied for this role
       const pool = applicants
         .filter(app => app.applied_position === selectedRole)
         .map(app => ({
@@ -218,12 +216,12 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
       return;
     }
 
-    // 'all' mode: call backend to score everyone against this specific role
+    // 'all' mode — fetch from backend with abort support
     const controller = new AbortController();
     setSmartLoading(true);
     setSmartError(null);
 
-    axios.get(`${API_BASE_URL}/smart-screen`, {
+    api.get('/smart-screen', {
       params: { title: selectedRole },
       signal: controller.signal,
     })
@@ -232,7 +230,7 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
         setSmartLoading(false);
       })
       .catch(err => {
-        if (axios.isCancel(err)) return;
+        if (err.name === 'CanceledError') return;
         setSmartError('Could not load rankings for this role.');
         setSmartLoading(false);
       });
@@ -243,9 +241,7 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
   // ── Candidate modal ───────────────────────────────────────────────────────
   const [modalApp, setModalApp] = useState(null);
 
-  // Enrich smart-screen result (only has basic fields) with full applicant data
   const openModal = (appOrResult) => {
-    // Try to find the full applicant record
     const full = applicants.find(a => a.id === (appOrResult.id || appOrResult.applicant_id));
     setModalApp(full || appOrResult);
   };
@@ -297,7 +293,7 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
               </div>
             ))}
 
-            {/* Total under the grid */}
+            {/* Total */}
             <div className="col-span-2 flex justify-end pt-1 pr-1">
               <span className={`text-[10px] font-black ${totalWeight === 100 ? 'text-emerald-600' : 'text-amber-500'}`}>
                 Total: {totalWeight}{totalWeight !== 100 ? ' — will be normalised' : ' ✓'}
@@ -398,7 +394,7 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
               <p className="text-[10px] text-slate-300">This may take a moment</p>
             </div>
           ) : smartError ? (
-            <div className="flex flex-col items-center justify-center py-10 text-slate-300">
+            <div className="flex flex-col items-center justify-center py-10">
               <p className="text-xs font-medium text-rose-400">{smartError}</p>
               <p className="text-[10px] mt-1 text-slate-400">Make sure this job has a description</p>
             </div>
@@ -417,7 +413,6 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
           ) : (
             <div className="space-y-2">
               {smartResults.map((item, i) => {
-                // item may be from API (role_match_score) or local (role_match_score)
                 const score = item.role_match_score != null ? Math.round(item.role_match_score)
                   : item.ai_job_match_score != null ? Math.round(item.ai_job_match_score)
                   : null;

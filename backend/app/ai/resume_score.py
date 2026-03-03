@@ -3,11 +3,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
-
-# Reuse your experience estimator if you want:
-# from app.ai.summarizer import estimate_experience_years
-# (or copy the function here if you prefer to avoid imports)
+from typing import Dict, List, Optional
 
 ACTION_VERBS = [
     "managed", "led", "owned", "built", "designed", "developed", "implemented",
@@ -39,14 +35,6 @@ SECTION_HINTS = {
 }
 
 BULLET_RE = re.compile(r"(^|\n)\s*[-•*]\s+")
-
-@dataclass(frozen=True)
-class ResumeScoreResult:
-    score: float
-    bucket: str
-    breakdown: Dict[str, float]
-    notes: List[str]
-
 
 def _clamp(x: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, x))
