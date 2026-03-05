@@ -1,17 +1,18 @@
 import React, { useMemo } from 'react';
 import { Trash2, MoreVertical, Briefcase, Star, Clock3, Sparkles } from 'lucide-react';
 
-const RecruitmentTab = ({ applicants = [], onSelect, onDelete, getStatusBadge }) => {
-  const pipelineStages = [
-    "Pre-screening", "Screening", "Interview", "Offer", "Hired", "Rejected"
-  ];
+// Moved outside component so useMemo has a stable dependency (fixes exhaustive-deps warning)
+const PIPELINE_STAGES = [
+  "Pre-screening", "Screening", "Interview", "Offer", "Hired", "Rejected"
+];
 
+const RecruitmentTab = ({ applicants = [], onSelect, onDelete }) => {
   const groupedApplicants = useMemo(() => {
     const groups = {};
-    pipelineStages.forEach(stage => groups[stage] = []);
+    PIPELINE_STAGES.forEach(stage => groups[stage] = []);
     applicants.forEach(app => {
       const currentStatus = (app.hiring_status || "").trim().toLowerCase();
-      const matchedStage = pipelineStages.find(s => s.toLowerCase() === currentStatus);
+      const matchedStage = PIPELINE_STAGES.find(s => s.toLowerCase() === currentStatus);
       if (matchedStage) groups[matchedStage].push(app);
       else groups["Pre-screening"].push(app);
     });
@@ -52,11 +53,11 @@ const RecruitmentTab = ({ applicants = [], onSelect, onDelete, getStatusBadge })
   return (
     <div className="bg-white rounded-[2rem] border-2 border-[#2A5C9A]/20 shadow-xl animate-in fade-in duration-500 h-full flex flex-col overflow-hidden">
       <div className="flex flex-1 min-h-0 overflow-x-auto">
-        {pipelineStages.map((stage, index) => (
+        {PIPELINE_STAGES.map((stage, index) => (
           <div
             key={stage}
             className={`flex-1 min-w-[210px] flex flex-col border-r border-slate-100 min-h-0 ${
-              index === pipelineStages.length - 1 ? 'border-r-0' : ''
+              index === PIPELINE_STAGES.length - 1 ? 'border-r-0' : ''
             }`}
           >
             {/* Column Header — sticky so it stays visible while scrolling */}

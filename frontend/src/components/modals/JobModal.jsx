@@ -1,30 +1,76 @@
-import React, { useState, useEffect } from 'react';
-import { X, FileText, Star, Info, Lightbulb, ClipboardList, Link2, Code2, ExternalLink, Check } from 'lucide-react';
+// frontend/src/components/modals/JobModal.jsx
+// Full content with ProgressPro brand colours replacing all emerald/green references
+//
+// Colour key:
+//   Primary navy  #1A3C6E   (was #10B981 / emerald)
+//   Hover navy    #0D2645
+//   Teal accent   #00AECC   (was teal-500)
+//   Light teal bg #E6F7FB
+
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  X, ClipboardList, Star, Lightbulb, FileText,
+  Link2, Code2, ExternalLink, Check,
+} from 'lucide-react';
 
 const DRAFT_KEY = 'intellihire_job_draft';
 
-const EMPTY_FORM = {
-  title: '',
-  department: 'IT',
-  status: 'Draft',
-  applicant_limit: 50,
-  job_summary: '',
-  key_responsibilities: '',
-  required_qualifications: '',
-  preferred_qualifications: '',
-  key_competencies: '',
-};
+const DEPARTMENTS = ['IT','Creative','Marketing','HR','Operations','Finance','Legal','Admin'];
+const WORK_TYPES  = ['Full-time','Part-time','Contract','Freelance','Internship'];
+
+const NAVY = '#1A3C6E';
+const NAVY_DARK = '#0D2645';
+const TEAL = '#00AECC';
+const TEAL_LIGHT = '#E6F7FB';
 
 const JobModal = ({ isOpen, onClose, onSave, initialData }) => {
-  const [formData, setFormData] = useState(EMPTY_FORM);
-  const [isSaving, setIsSaving] = useState(false);
-  const [copied, setCopied] = useState(null); // 'link' | 'embed' | null
+  const jobId    = initialData?.id ?? null;
+  const publicUrl = `${window.location.origin}/jobs/${jobId}`;
+  const embedCode = `<iframe src="${publicUrl}" width="100%" height="800" frameborder="0"></iframe>`;
 
-  const jobId = initialData?.id;
-  const publicUrl = jobId ? `${window.location.origin}/jobs/${jobId}` : null;
-  const embedCode = jobId
-    ? `<iframe src="${window.location.origin}/jobs/${jobId}" width="100%" height="700" frameborder="0" style="border-radius:16px;border:1px solid #e2e8f0;"></iframe>`
-    : null;
+  const blank = {
+    title: '', department: '', work_type: 'Full-time', status: 'Draft',
+    applicant_limit: 50,
+    job_summary: '',
+    key_responsibilities: '',
+    required_qualifications: '',
+    preferred_qualifications: '',
+    key_competencies: '',
+  };
+
+  const [formData, setFormData] = useState(blank);
+  const [isSaving, setIsSaving] = useState(false);
+  const [copied,   setCopied]   = useState(null);
+
+  // Load draft or initial data
+  useEffect(() => {
+    if (!isOpen) return;
+    if (initialData) {
+      setFormData({
+        title:                   initialData.title                   ?? '',
+        department:              initialData.department              ?? '',
+        work_type:               initialData.work_type               ?? 'Full-time',
+        status:                  initialData.status                  ?? 'Draft',
+        applicant_limit:         initialData.applicant_limit         ?? 50,
+        job_summary:             initialData.job_summary             ?? '',
+        key_responsibilities:    initialData.key_responsibilities    ?? '',
+        required_qualifications: initialData.required_qualifications ?? '',
+        preferred_qualifications:initialData.preferred_qualifications?? '',
+        key_competencies:        initialData.key_competencies        ?? '',
+      });
+    } else {
+      const draft = localStorage.getItem(DRAFT_KEY);
+      setFormData(draft ? { ...blank, ...JSON.parse(draft) } : blank);
+    }
+  }, [isOpen, initialData]);
+
+  // Auto-save draft (new jobs only)
+  useEffect(() => {
+    if (!isOpen || initialData) return;
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(formData));
+  }, [formData, isOpen, initialData]);
+
+  const set = field => e => setFormData(p => ({ ...p, [field]: e.target.value }));
 
   const copyToClipboard = (text, key) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -33,57 +79,18 @@ const JobModal = ({ isOpen, onClose, onSave, initialData }) => {
     });
   };
 
-  // Load form: editing existing job → use its data; new job → try draft from localStorage
-  useEffect(() => {
-    if (!isOpen) return;
-
-    if (initialData) {
-      setFormData({
-        title:                    initialData.title ?? '',
-        department:               initialData.department ?? 'IT',
-        status:                   initialData.status ?? 'Draft',
-        applicant_limit:          initialData.applicant_limit ?? 50,
-        job_summary:              initialData.job_summary ?? '',
-        key_responsibilities:     initialData.key_responsibilities ?? '',
-        required_qualifications:  initialData.required_qualifications ?? '',
-        preferred_qualifications: initialData.preferred_qualifications ?? '',
-        key_competencies:         initialData.key_competencies ?? '',
-      });
-    } else {
-      // New job — restore draft if one exists
-      try {
-        const saved = localStorage.getItem(DRAFT_KEY);
-        if (saved) setFormData({ ...EMPTY_FORM, ...JSON.parse(saved) });
-        else setFormData(EMPTY_FORM);
-      } catch {
-        setFormData(EMPTY_FORM);
-      }
-    }
-  }, [initialData, isOpen]);
-
-  // Auto-save draft to localStorage whenever form changes (new jobs only)
-  useEffect(() => {
-    if (!isOpen || initialData) return;
-    try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(formData));
-    } catch { /* quota exceeded – silent */ }
-  }, [formData, isOpen, initialData]);
-
-  const set = (field) => (e) => setFormData((prev) => ({ ...prev, [field]: e.target.value }));
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (isSaving) return;
+  const handleSubmit = async e => {
+    if (e) e.preventDefault();
+    if (!formData.title.trim()) return alert('Job title is required.');
     setIsSaving(true);
     const payload = {
       ...formData,
-      applicant_limit: Number.isFinite(Number(formData.applicant_limit))
-        ? Number(formData.applicant_limit) : 50,
+      applicant_limit: formData.applicant_limit ? Number(formData.applicant_limit) : 50,
     };
     try {
       const ok = await onSave(payload, initialData?.id);
       if (ok) {
-        if (!initialData) localStorage.removeItem(DRAFT_KEY); // clear draft on success
+        if (!initialData) localStorage.removeItem(DRAFT_KEY);
         onClose();
       }
     } finally {
@@ -91,10 +98,7 @@ const JobModal = ({ isOpen, onClose, onSave, initialData }) => {
     }
   };
 
-  const handleClose = () => {
-    // Draft is already persisted in localStorage — just close
-    onClose();
-  };
+  const handleClose = () => onClose();
 
   if (!isOpen) return null;
 
@@ -102,7 +106,7 @@ const JobModal = ({ isOpen, onClose, onSave, initialData }) => {
     <textarea
       rows={rows}
       disabled={isSaving}
-      className="w-full mt-1.5 bg-slate-50 border-2 border-transparent focus:border-[#10B981] rounded-2xl px-4 py-3 text-sm transition-all outline-none resize-none disabled:opacity-60 leading-relaxed"
+      className="w-full mt-1.5 bg-slate-50 border-2 border-transparent rounded-2xl px-4 py-3 text-sm transition-all outline-none resize-none disabled:opacity-60 leading-relaxed focus:border-[#00AECC]"
       value={formData[field]}
       onChange={set(field)}
       placeholder={placeholder}
@@ -121,17 +125,22 @@ const JobModal = ({ isOpen, onClose, onSave, initialData }) => {
       <div className="bg-white rounded-[2rem] w-[70vw] max-h-[92vh] shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col overflow-hidden">
 
         {/* Header */}
-        <div className="bg-[#10B981] px-8 py-5 flex items-center justify-between shrink-0">
+        <div
+          className="px-8 py-5 flex items-center justify-between shrink-0"
+          style={{ background: `linear-gradient(135deg, ${NAVY} 0%, ${TEAL} 100%)` }}
+        >
           <h2 className="text-white font-bold text-base uppercase tracking-wider">
             {initialData ? 'Edit Position' : 'New Job Posting'}
           </h2>
           {!initialData && (
-            <span className="text-emerald-100 text-[10px] font-semibold">
-              ● Draft auto-saved
-            </span>
+            <span className="text-white/60 text-[10px] font-semibold">● Draft auto-saved</span>
           )}
-          <button type="button" onClick={handleClose} disabled={isSaving}
-            className="text-white/80 hover:text-white transition-colors disabled:opacity-50">
+          <button
+            type="button"
+            onClick={handleClose}
+            disabled={isSaving}
+            className="text-white/80 hover:text-white transition-colors disabled:opacity-50"
+          >
             <X size={20} />
           </button>
         </div>
@@ -143,128 +152,140 @@ const JobModal = ({ isOpen, onClose, onSave, initialData }) => {
           <div className="grid grid-cols-[1fr_auto_auto] gap-4 items-end">
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Job Title</label>
-              <input required disabled={isSaving}
-                className="w-full mt-1.5 bg-slate-50 border-2 border-transparent focus:border-[#10B981] rounded-2xl px-5 py-3 text-sm transition-all outline-none disabled:opacity-60"
-                value={formData.title} onChange={set('title')}
-                placeholder="e.g. Senior Software Developer" />
+              <input
+                required
+                disabled={isSaving}
+                className="w-full mt-1.5 bg-slate-50 border-2 border-transparent focus:border-[#00AECC] rounded-2xl px-5 py-3 text-sm transition-all outline-none disabled:opacity-60"
+                value={formData.title}
+                onChange={set('title')}
+                placeholder="e.g. Customer Support Associate"
+              />
             </div>
-            <div className="w-28">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Limit</label>
-              <input type="number" min="1" required disabled={isSaving}
-                className="w-full mt-1.5 bg-slate-50 border-2 border-transparent focus:border-[#10B981] rounded-2xl px-4 py-3 text-sm outline-none disabled:opacity-60"
+            <div>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Openings</label>
+              <input
+                type="number"
+                min={1}
+                disabled={isSaving}
+                className="w-24 mt-1.5 bg-slate-50 border-2 border-transparent focus:border-[#00AECC] rounded-2xl px-4 py-3 text-sm transition-all outline-none disabled:opacity-60 text-center font-bold"
                 value={formData.applicant_limit}
-                onChange={(e) => setFormData((p) => ({ ...p, applicant_limit: parseInt(e.target.value, 10) || 0 }))} />
+                onChange={set('applicant_limit')}
+              />
             </div>
-            <div className="w-36">
+            <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Department</label>
-              <select disabled={isSaving}
-                className="w-full mt-1.5 bg-slate-50 border-2 border-transparent focus:border-[#10B981] rounded-2xl px-4 py-3 text-sm outline-none appearance-none disabled:opacity-60"
-                value={formData.department} onChange={set('department')}>
-                <option value="IT">IT</option>
-                <option value="Creative">Creative</option>
-                <option value="Marketing">Marketing</option>
-                <option value="HR">HR</option>
-                <option value="Operations">Operations</option>
+              <select
+                disabled={isSaving}
+                className="mt-1.5 bg-slate-50 border-2 border-transparent focus:border-[#00AECC] rounded-2xl px-4 py-3 text-sm transition-all outline-none disabled:opacity-60 appearance-none pr-8"
+                value={formData.department}
+                onChange={set('department')}
+              >
+                <option value="">Department</option>
+                {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
               </select>
             </div>
           </div>
 
-          {/* Job Description label */}
+          {/* Work type */}
           <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-4">
-              Job Description
-            </p>
-
-            {/* Job Summary — full width */}
-            <div className="bg-slate-50 rounded-2xl p-4 border-2 border-transparent hover:border-slate-200 transition-colors mb-4">
-              <SectionLabel icon={Info} color="text-[#2A5C9A]">Job Summary</SectionLabel>
-              <TextArea field="job_summary" rows={3}
-                placeholder="Brief overview of the role and its purpose within the organization..." />
-            </div>
-
-            {/* 2×2 grid */}
-            <div className="grid grid-cols-2 gap-4">
-              {/* Key Responsibilities */}
-              <div className="bg-slate-50 rounded-2xl p-4 border-2 border-transparent hover:border-slate-200 transition-colors">
-                <SectionLabel icon={ClipboardList} color="text-emerald-600">Key Responsibilities</SectionLabel>
-                <TextArea field="key_responsibilities"
-                  placeholder={"- Develop and maintain web applications\n- Collaborate with design teams\n- Write clean, testable code"} />
-                <p className="text-[9px] text-slate-300 mt-1 text-right">{formData.key_responsibilities.length} chars</p>
-              </div>
-
-              {/* Required Qualifications */}
-              <div className="bg-slate-50 rounded-2xl p-4 border-2 border-transparent hover:border-slate-200 transition-colors">
-                <SectionLabel icon={Star} color="text-amber-500">Required Qualifications</SectionLabel>
-                <TextArea field="required_qualifications"
-                  placeholder={"- Bachelor's degree in Computer Science\n- 2+ years experience with React\n- Proficiency in Python or Node.js"} />
-                <p className="text-[9px] text-slate-300 mt-1 text-right">{formData.required_qualifications.length} chars</p>
-              </div>
-
-              {/* Preferred Qualifications */}
-              <div className="bg-slate-50 rounded-2xl p-4 border-2 border-transparent hover:border-slate-200 transition-colors">
-                <SectionLabel icon={Lightbulb} color="text-violet-500">Preferred Qualifications</SectionLabel>
-                <TextArea field="preferred_qualifications"
-                  placeholder={"- Experience with Docker / Kubernetes\n- Familiarity with CI/CD pipelines\n- Open-source contributions"} />
-                <p className="text-[9px] text-slate-300 mt-1 text-right">{formData.preferred_qualifications.length} chars</p>
-              </div>
-
-              {/* Key Competencies */}
-              <div className="bg-slate-50 rounded-2xl p-4 border-2 border-transparent hover:border-slate-200 transition-colors">
-                <SectionLabel icon={FileText} color="text-rose-500">Key Competencies</SectionLabel>
-                <TextArea field="key_competencies"
-                  placeholder={"- Strong problem-solving skills\n- Excellent written communication\n- Ability to work in an agile team"} />
-                <p className="text-[9px] text-slate-300 mt-1 text-right">{formData.key_competencies.length} chars</p>
-              </div>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Work Type</label>
+            <div className="flex gap-2 mt-2 flex-wrap">
+              {WORK_TYPES.map(t => (
+                <button
+                  key={t}
+                  type="button"
+                  disabled={isSaving}
+                  onClick={() => setFormData(p => ({ ...p, work_type: t }))}
+                  className="px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-wide border-2 transition-all disabled:opacity-60"
+                  style={
+                    formData.work_type === t
+                      ? { background: TEAL_LIGHT, borderColor: TEAL, color: NAVY }
+                      : { background: '#F8FAFC', borderColor: '#E2E8F0', color: '#94A3B8' }
+                  }
+                >
+                  {t}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Share / Embed — only shown for saved jobs */}
+          {/* Job Summary */}
+          <div className="bg-slate-50 rounded-2xl p-4 border-2 border-transparent hover:border-slate-200 transition-colors">
+            <SectionLabel icon={FileText} color="text-slate-500">Job Summary</SectionLabel>
+            <TextArea field="job_summary" placeholder="Brief overview of the role and team..." rows={3} />
+          </div>
+
+          {/* Description sections */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-slate-50 rounded-2xl p-4 border-2 border-transparent hover:border-slate-200 transition-colors">
+              <SectionLabel icon={ClipboardList} color="text-[#1A3C6E]">Key Responsibilities</SectionLabel>
+              <TextArea field="key_responsibilities"
+                placeholder={"- Manage applicant pipeline\n- Coordinate with hiring managers\n- Conduct initial screening calls"} />
+              <p className="text-[9px] text-slate-300 mt-1 text-right">{formData.key_responsibilities.length} chars</p>
+            </div>
+            <div className="bg-slate-50 rounded-2xl p-4 border-2 border-transparent hover:border-slate-200 transition-colors">
+              <SectionLabel icon={Star} color="text-amber-500">Required Qualifications</SectionLabel>
+              <TextArea field="required_qualifications"
+                placeholder={"- Bachelor's degree in any field\n- 2+ years in a similar role\n- Strong communication skills"} />
+              <p className="text-[9px] text-slate-300 mt-1 text-right">{formData.required_qualifications.length} chars</p>
+            </div>
+            <div className="bg-slate-50 rounded-2xl p-4 border-2 border-transparent hover:border-slate-200 transition-colors">
+              <SectionLabel icon={Lightbulb} color="text-violet-500">Preferred Qualifications</SectionLabel>
+              <TextArea field="preferred_qualifications"
+                placeholder={"- Experience with ATS tools\n- Knowledge of BPO industry\n- Fluency in another language"} />
+              <p className="text-[9px] text-slate-300 mt-1 text-right">{formData.preferred_qualifications.length} chars</p>
+            </div>
+            <div className="bg-slate-50 rounded-2xl p-4 border-2 border-transparent hover:border-slate-200 transition-colors">
+              <SectionLabel icon={FileText} color="text-rose-500">Key Competencies</SectionLabel>
+              <TextArea field="key_competencies"
+                placeholder={"- Strong problem-solving skills\n- Excellent written communication\n- Team player"} />
+              <p className="text-[9px] text-slate-300 mt-1 text-right">{formData.key_competencies.length} chars</p>
+            </div>
+          </div>
+
+          {/* Share / Embed — only for saved jobs */}
           {jobId && (
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
-                <Link2 size={10} /> Share & Embed
+                <Link2 size={10} /> Share &amp; Embed
               </label>
               <div className="flex gap-2 mt-2">
-                {/* Public link */}
                 <button
                   type="button"
                   onClick={() => copyToClipboard(publicUrl, 'link')}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 text-[10px] font-black uppercase tracking-wider transition-all ${
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 text-[10px] font-black uppercase tracking-wider transition-all"
+                  style={
                     copied === 'link'
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-600'
-                      : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-[#2A5C9A] hover:text-[#2A5C9A]'
-                  }`}
+                      ? { borderColor: TEAL, background: TEAL_LIGHT, color: NAVY }
+                      : { borderColor: '#E2E8F0', background: '#F8FAFC', color: '#94A3B8' }
+                  }
                 >
                   {copied === 'link' ? <Check size={12} /> : <Link2 size={12} />}
                   {copied === 'link' ? 'Copied!' : 'Copy Link'}
                 </button>
-
-                {/* Embed code */}
                 <button
                   type="button"
                   onClick={() => copyToClipboard(embedCode, 'embed')}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 text-[10px] font-black uppercase tracking-wider transition-all ${
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 text-[10px] font-black uppercase tracking-wider transition-all"
+                  style={
                     copied === 'embed'
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-600'
-                      : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-violet-400 hover:text-violet-600'
-                  }`}
+                      ? { borderColor: TEAL, background: TEAL_LIGHT, color: NAVY }
+                      : { borderColor: '#E2E8F0', background: '#F8FAFC', color: '#94A3B8' }
+                  }
                 >
                   {copied === 'embed' ? <Check size={12} /> : <Code2 size={12} />}
                   {copied === 'embed' ? 'Copied!' : 'Copy Embed'}
                 </button>
-
-                {/* Open in new tab */}
                 <a
                   href={publicUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-slate-200 bg-slate-50 text-slate-500 hover:border-[#10B981] hover:text-[#10B981] text-[10px] font-black uppercase tracking-wider transition-all"
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-slate-200 bg-slate-50 text-slate-500 hover:border-[#00AECC] hover:text-[#1A3C6E] text-[10px] font-black uppercase tracking-wider transition-all"
                 >
                   <ExternalLink size={12} />
                   Preview
                 </a>
               </div>
-              {/* URL preview */}
               <div className="mt-2 px-3 py-2 bg-slate-50 rounded-xl border border-slate-100">
                 <p className="text-[9px] text-slate-400 font-mono truncate">{publicUrl}</p>
               </div>
@@ -275,12 +296,19 @@ const JobModal = ({ isOpen, onClose, onSave, initialData }) => {
           <div>
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Status</label>
             <div className="flex bg-slate-100 rounded-2xl p-1.5 mt-1.5">
-              {['Draft', 'Open', 'Closed'].map((opt) => (
-                <button key={opt} type="button" disabled={isSaving}
-                  onClick={() => setFormData((p) => ({ ...p, status: opt }))}
-                  className={`flex-1 py-2 text-[10px] font-black uppercase rounded-xl transition-all disabled:opacity-60 ${
-                    formData.status === opt ? 'bg-white text-[#10B981] shadow-sm' : 'text-slate-400 hover:text-slate-600'
-                  }`}>
+              {['Draft', 'Open', 'Closed'].map(opt => (
+                <button
+                  key={opt}
+                  type="button"
+                  disabled={isSaving}
+                  onClick={() => setFormData(p => ({ ...p, status: opt }))}
+                  className="flex-1 py-2 text-[10px] font-black uppercase rounded-xl transition-all disabled:opacity-60"
+                  style={
+                    formData.status === opt
+                      ? { background: '#fff', color: TEAL, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }
+                      : { color: '#94A3B8' }
+                  }
+                >
                   {opt}
                 </button>
               ))}
@@ -288,15 +316,23 @@ const JobModal = ({ isOpen, onClose, onSave, initialData }) => {
           </div>
         </form>
 
-        {/* Footer actions — outside scroll area */}
+        {/* Footer */}
         <div className="px-8 py-5 border-t border-slate-100 flex gap-3 shrink-0 bg-white">
-          <button type="button" onClick={handleClose} disabled={isSaving}
-            className="flex-1 px-6 py-4 rounded-2xl border-2 border-slate-100 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all disabled:opacity-60">
+          <button
+            type="button"
+            onClick={handleClose}
+            disabled={isSaving}
+            className="flex-1 px-6 py-4 rounded-2xl border-2 border-slate-100 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all disabled:opacity-60"
+          >
             Cancel
           </button>
-          <button type="submit" form="" disabled={isSaving}
+          <button
+            type="button"
+            disabled={isSaving}
             onClick={handleSubmit}
-            className="flex-[2] px-6 py-4 rounded-2xl bg-[#10B981] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#059669] shadow-lg shadow-emerald-100 transition-all disabled:opacity-60">
+            className="flex-[2] px-6 py-4 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-60"
+            style={{ background: `linear-gradient(135deg, ${NAVY} 0%, ${TEAL} 100%)`, boxShadow: `0 4px 14px ${TEAL}40` }}
+          >
             {isSaving ? 'Saving…' : initialData ? 'Update Position' : 'Create Position'}
           </button>
         </div>

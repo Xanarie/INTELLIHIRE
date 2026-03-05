@@ -35,3 +35,81 @@
     @apply bg-background text-foreground;
   }
 }
+
+[data-radix-popper-content-wrapper] {
+  z-index: 9999 !important;
+}
+
+[role="listbox"],
+[data-radix-select-content],
+[data-radix-dropdown-menu-content] {
+  background-color: #ffffff !important;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 4px 10px -5px rgba(0,0,0,0.04);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   IntelliHire — ProgressPro Brand Theme
+   Add to: frontend/src/index.css  (paste after existing @tailwind lines)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── CSS custom properties (brand tokens) ──────────────────────────────────── */
+:root {
+  --pp-navy:       #1A3C6E;
+  --pp-navy-dark:  #0D2645;
+  --pp-teal:       #00AECC;
+  --pp-teal-light: #E6F7FB;
+  --pp-navy-light: #EEF4FB;
+}
+
+/* ── Fix transparent Radix/shadcn dropdown popups ───────────────────────────── */
+[data-radix-popper-content-wrapper] {
+  z-index: 9999 !important;
+}
+
+[role="listbox"],
+[data-radix-select-content],
+[data-radix-dropdown-menu-content],
+[data-radix-popover-content] {
+  background-color: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.12), 0 4px 12px -5px rgba(0, 0, 0, 0.06) !important;
+}
+
+[data-radix-select-item]:hover,
+[data-radix-select-item][data-highlighted] {
+  background-color: var(--pp-teal-light) !important;
+  color: var(--pp-navy) !important;
+}
+
+/* ── Shadcn input / focus ring override ─────────────────────────────────────── */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+}
+
+/* ── Scrollbar styling (subtle, brand-aware) ────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #F8FAFC; }
+::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--pp-teal); }
+
+/* ── Utility classes for inline use ─────────────────────────────────────────── */
+.pp-gradient {
+  background: linear-gradient(135deg, var(--pp-navy) 0%, var(--pp-teal) 100%);
+}
+
+.pp-btn {
+  background: linear-gradient(135deg, var(--pp-navy) 0%, var(--pp-teal) 100%);
+  box-shadow: 0 4px 14px rgba(0, 174, 204, 0.35);
+  color: white;
+  border-radius: 0.75rem;
+  font-weight: 900;
+  transition: opacity 0.15s;
+}
+
+.pp-btn:hover { opacity: 0.92; }
+.pp-btn:disabled { opacity: 0.55; cursor: not-allowed; }

@@ -1,9 +1,9 @@
 // frontend/src/components/ApplicantDetail.jsx
 import React, { useEffect, useState } from "react";
-import { api } from "@/config/api";
+import axios from "axios";
 import {
   X, Mail, Briefcase, User, Send, Sparkles, ChevronRight,
-  Phone, FileText, Loader2,
+  Phone, FileText, Loader2, AlertTriangle, Copy,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -13,62 +13,74 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import ReactMarkdown from "react-markdown";
+import { getFlags } from "../utils/flagUtils";
 
-const HIRING_STAGES = [
-  "Pre-screening", "Screening", "Interview", "Offer", "Hired", "Rejected",
-];
+const API_BASE_URL = "http://localhost:8000/api/admin";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+const HIRING_STAGES = ["Pre-screening", "Screening", "Interview", "Offer", "Hired", "Rejected"];
+
+// ── ProgressPro brand ─────────────────────────────────────────────────────────
+const NAVY      = "#1A3C6E";
+const NAVY_DARK = "#0D2645";
+const TEAL      = "#00AECC";
+const TEAL_LIGHT = "#E6F7FB";
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function getExperienceLabel(resumeScoreJson) {
   const exp = resumeScoreJson?.breakdown?.experience_signals ?? null;
-  if (exp === null) return { label: "Unknown", color: "text-slate-400" };
-  if (exp >= 24)   return { label: "Senior (5+ yrs)",   color: "text-emerald-600" };
-  if (exp >= 18)   return { label: "Mid-level (3–5 yrs)", color: "text-amber-500" };
-  if (exp >= 12)   return { label: "Junior (1–3 yrs)",  color: "text-blue-500" };
-  return            { label: "Entry-level (<1 yr)",      color: "text-slate-500" };
-}
-
-function getResumeColor(bucket) {
-  if (bucket === "Strong")       return "text-emerald-600";
-  if (bucket === "Good")         return "text-amber-500";
-  if (bucket === "Needs Review") return "text-orange-500";
-  return "text-rose-500";
+  if (exp === null) return { label: "Unknown",  color: "text-slate-400" };
+  if (exp >= 25)   return { label: "Strong",    color: "text-emerald-600" };
+  if (exp >= 18)   return { label: "Good",      color: "text-blue-600" };
+  if (exp >= 12)   return { label: "Moderate",  color: "text-amber-600" };
+  return             { label: "Limited",    color: "text-rose-500" };
 }
 
 function getMatchColor(bucket) {
-  if (bucket === "Strong")       return "text-emerald-600";
-  if (bucket === "Good")         return "text-amber-500";
-  if (bucket === "Needs Review") return "text-orange-500";
+  if (bucket === "Highly Qualified") return "text-emerald-600";
+  if (bucket === "Qualified")        return "text-blue-600";
+  if (bucket === "Needs Review")     return "text-amber-600";
   return "text-rose-500";
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+function getResumeColor(bucket) {
+  if (bucket === "Strong")   return "text-emerald-600";
+  if (bucket === "Good")     return "text-blue-600";
+  if (bucket === "Moderate") return "text-amber-600";
+  return "text-rose-500";
+}
+
+function getBucketBadge(bucket) {
+  if (bucket === "Highly Qualified") return "bg-emerald-50 text-emerald-700 border-emerald-200";
+  if (bucket === "Qualified")        return "bg-blue-50 text-blue-700 border-blue-200";
+  if (bucket === "Needs Review")     return "bg-amber-50 text-amber-700 border-amber-200";
+  return "bg-rose-50 text-rose-600 border-rose-200";
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
 
 const DetailItem = ({ label, value, icon }) => (
-  <div className="flex items-start gap-3 py-2">
+  <div className="flex items-start gap-3">
     <div className="mt-0.5 shrink-0">{icon}</div>
-    <div className="min-w-0">
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
-      <p className="text-sm font-bold text-slate-700 truncate">{value || "—"}</p>
+    <div>
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{label}</p>
+      <p className="text-sm font-semibold text-slate-800">{value || "—"}</p>
     </div>
   </div>
 );
 
-const InsightRow = ({ label, value, valueColor, subtext }) => (
-  <div className="flex items-center justify-between py-2.5 gap-4">
-    <span className="text-xs text-slate-500 font-medium shrink-0">{label}</span>
-    <div className="text-right min-w-0">
-      <span className={`text-sm font-black ${valueColor || "text-slate-700"}`}>{value}</span>
+const InsightRow = ({ label, value, valueColor = "text-slate-800", subtext }) => (
+  <div className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0">
+    <span className="text-sm text-slate-500 font-medium">{label}</span>
+    <div className="text-right">
+      <span className={`text-sm font-black ${valueColor}`}>{value}</span>
       {subtext && <p className="text-[10px] text-slate-400 mt-0.5">{subtext}</p>}
     </div>
   </div>
 );
 
-const Bar = ({ label, value, max = 1, color = "bg-[#2A5C9A]" }) => {
-  const pct = max === 1
-    ? Math.round((value ?? 0) * 100)
-    : Math.round(((value ?? 0) / max) * 100);
+const Bar = ({ label, value, max = 1, color }) => {
+  const pct     = max === 1 ? Math.round((value ?? 0) * 100) : Math.round(((value ?? 0) / max) * 100);
   const display = max === 1 ? `${pct}%` : `${value ?? 0}/${max}`;
   return (
     <div>
@@ -77,26 +89,29 @@ const Bar = ({ label, value, max = 1, color = "bg-[#2A5C9A]" }) => {
         <span className="font-bold">{display}</span>
       </div>
       <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-        <div className={`h-full ${color} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${pct}%`, background: color || NAVY }}
+        />
       </div>
     </div>
   );
 };
 
-// ─── Role Suggestions (inside breakdown modal) ────────────────────────────────
+// ── Role Suggestions ──────────────────────────────────────────────────────────
 
 const RoleSuggestions = ({ applicantId }) => {
-  const [loading, setLoading]         = useState(true);
+  const [loading,     setLoading]     = useState(true);
   const [suggestions, setSuggestions] = useState([]);
-  const [error, setError]             = useState(null);
+  const [error,       setError]       = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await api.get(`/applicants/${applicantId}/role-suggestions`);
+        const res = await axios.get(`${API_BASE_URL}/applicants/${applicantId}/role-suggestions`);
         if (!cancelled) setSuggestions(res.data.suggestions || []);
-      } catch (e) {
+      } catch {
         if (!cancelled) setError("Could not load role suggestions.");
       } finally {
         if (!cancelled) setLoading(false);
@@ -110,35 +125,43 @@ const RoleSuggestions = ({ applicantId }) => {
       <Loader2 size={13} className="animate-spin" /> Comparing against open roles…
     </div>
   );
-
   if (error) return <p className="text-xs text-rose-400 py-2">{error}</p>;
-
-  if (!suggestions.length) return (
-    <p className="text-xs text-slate-400 py-2">No open jobs with descriptions to compare against.</p>
-  );
+  if (!suggestions.length) return <p className="text-xs text-slate-400 py-2">No open jobs with descriptions to compare against.</p>;
 
   return (
     <div className="space-y-2 mt-1">
-      {suggestions.map((s) => (
+      {suggestions.map(s => (
         <div
           key={s.job_id}
-          className={`flex items-center justify-between p-3 rounded-xl border ${
-            s.is_applied_position
-              ? "bg-[#E8F0F8] border-[#2A5C9A]/20"
-              : "bg-slate-50 border-slate-100"
-          }`}
+          className="flex items-center justify-between p-3 rounded-xl border"
+          style={s.is_applied_position
+            ? { borderColor: `${TEAL}50`, background: TEAL_LIGHT }
+            : { borderColor: '#F1F5F9', background: '#fff' }
+          }
         >
           <div className="min-w-0">
-            <p className="text-xs font-black text-slate-700 truncate">{s.title}</p>
-            {s.is_applied_position && (
-              <p className="text-[9px] text-[#2A5C9A] font-bold uppercase tracking-wide mt-0.5">Applied Position</p>
-            )}
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-bold text-slate-800 truncate">{s.title}</p>
+              {s.is_applied_position && (
+                <span className="text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full shrink-0" style={{ background: TEAL_LIGHT, color: NAVY }}>
+                  Applied
+                </span>
+              )}
+              {s.knockout && (
+                <span className="text-[9px] font-black uppercase tracking-wide text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded-full shrink-0">
+                  ⚠ Knockout
+                </span>
+              )}
+            </div>
+            <p className="text-[10px] text-slate-400 mt-0.5">{s.department}</p>
           </div>
-          <div className="flex items-center gap-2 shrink-0 ml-3">
-            <span className={`text-sm font-black ${getMatchColor(s.bucket)}`}>
-              {Math.round(s.score)}%
+          <div className="text-right shrink-0 ml-3">
+            <p className={`text-sm font-black ${getMatchColor(s.bucket)}`}>
+              {Math.round(s.score)}<span className="text-xs font-normal text-slate-400">/100</span>
+            </p>
+            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${getBucketBadge(s.bucket)}`}>
+              {s.bucket}
             </span>
-            <span className="text-[10px] text-slate-400">{s.bucket}</span>
           </div>
         </div>
       ))}
@@ -146,44 +169,47 @@ const RoleSuggestions = ({ applicantId }) => {
   );
 };
 
-// ─── Breakdown Modal ──────────────────────────────────────────────────────────
+// ── Breakdown Modal ───────────────────────────────────────────────────────────
 
 const BreakdownModal = ({ applicant, onClose }) => {
-  const resume = applicant?.ai_resume_score_json;
-  const match  = applicant?.ai_job_match_json;
+  const match  = applicant.ai_job_match_json;
+  const resume = applicant.ai_resume_score_json;
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-      <div className="bg-white rounded-[2rem] shadow-2xl border border-slate-100 w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between px-7 pt-6 pb-4 border-b border-slate-100 shrink-0">
-          <h2 className="text-sm font-black text-slate-800">Score Breakdown & Role Comparisons</h2>
-          <button onClick={onClose} className="p-1.5 rounded-xl hover:bg-slate-100 transition-colors">
-            <X size={16} className="text-slate-400" />
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-3xl w-full max-w-lg shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 max-h-[88vh]"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Modal header */}
+        <div
+          className="flex items-center justify-between px-7 pt-5 pb-4 shrink-0 text-white"
+          style={{ background: `linear-gradient(135deg, ${NAVY} 0%, ${TEAL} 100%)` }}
+        >
+          <div>
+            <p className="text-[10px] font-black text-white/60 uppercase tracking-widest">Score Breakdown</p>
+            <p className="text-base font-bold mt-0.5">{applicant.f_name} {applicant.l_name}</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-white/20 transition-colors">
+            <X className="h-4 w-4" />
           </button>
         </div>
 
         <div className="overflow-y-auto px-7 py-5 space-y-6">
-          {/* Resume Score */}
-          {resume ? (
+          {/* Resume Quality */}
+          {resume && (
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
                 Resume Quality — {Math.round(applicant.ai_resume_score ?? 0)}/100
               </p>
               <div className="space-y-2.5">
-                <Bar label="Structure"  value={resume.breakdown?.structure}          max={30} />
-                <Bar label="Experience" value={resume.breakdown?.experience_signals} max={30} />
-                <Bar label="Impact"     value={resume.breakdown?.impact_signals}     max={25} />
-                <Bar label="Clarity"    value={resume.breakdown?.clarity}            max={15} />
+                <Bar label="Writing Quality"    value={resume.breakdown?.writing_quality}    color={TEAL} />
+                <Bar label="Structure"          value={resume.breakdown?.structure}          color={TEAL} />
+                <Bar label="Experience Signals" value={resume.breakdown?.experience_signals} max={30} color={TEAL} />
+                <Bar label="Skills Density"     value={resume.breakdown?.skills_density}     color={TEAL} />
               </div>
-              {resume.notes?.length > 0 && (
-                <div className="mt-3 space-y-1">
-                  {resume.notes.slice(0, 5).map((n, i) => (
-                    <p key={i} className="text-[11px] text-slate-500">• {n}</p>
-                  ))}
-                </div>
-              )}
             </div>
-          ) : null}
+          )}
 
           {/* Job Match */}
           {match ? (
@@ -192,16 +218,16 @@ const BreakdownModal = ({ applicant, onClose }) => {
                 Job Match — {Math.round(applicant.ai_job_match_score ?? 0)}/100
               </p>
               <div className="space-y-2.5 mb-4">
-                <Bar label="Keyword Coverage"    value={match.breakdown?.keyword_coverage}   color="bg-emerald-500" />
-                <Bar label="Semantic Similarity" value={match.breakdown?.semantic_similarity} color="bg-emerald-500" />
-                <Bar label="Experience Fit"      value={match.breakdown?.experience_ratio}    color="bg-emerald-500" />
+                <Bar label="Keyword Coverage"    value={match.breakdown?.keyword_coverage}   color={NAVY} />
+                <Bar label="Semantic Similarity" value={match.breakdown?.semantic_similarity} color={NAVY} />
+                <Bar label="Experience Fit"      value={match.breakdown?.experience_ratio}    color={NAVY} />
               </div>
               {(match.must_haves?.matched?.length > 0 || match.must_haves?.missing?.length > 0) && (
                 <div className="space-y-2">
                   {match.must_haves.matched?.length > 0 && (
-                    <div className="p-3 bg-emerald-50 rounded-xl">
-                      <p className="text-[10px] font-black text-emerald-600 uppercase tracking-wide mb-1">✓ Matched Keywords</p>
-                      <p className="text-xs text-emerald-700 leading-relaxed">{match.must_haves.matched.join(", ")}</p>
+                    <div className="p-3 rounded-xl" style={{ background: TEAL_LIGHT }}>
+                      <p className="text-[10px] font-black uppercase tracking-wide mb-1" style={{ color: NAVY }}>✓ Matched Keywords</p>
+                      <p className="text-xs leading-relaxed" style={{ color: NAVY }}>{match.must_haves.matched.join(", ")}</p>
                     </div>
                   )}
                   {match.must_haves.missing?.length > 0 && (
@@ -228,12 +254,8 @@ const BreakdownModal = ({ applicant, onClose }) => {
 
           {/* Role Suggestions */}
           <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-              Role Fit Across All Open Positions
-            </p>
-            <p className="text-[10px] text-slate-400 mb-3">
-              Ranked by how well this candidate's resume matches each open job description.
-            </p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Role Fit Across All Open Positions</p>
+            <p className="text-[10px] text-slate-400 mb-3">Ranked by resume match against each open job description.</p>
             <RoleSuggestions applicantId={applicant.id} />
           </div>
         </div>
@@ -251,7 +273,7 @@ const BreakdownModal = ({ applicant, onClose }) => {
   );
 };
 
-// ─── AI Match Insights ────────────────────────────────────────────────────────
+// ── AI Match Insights ─────────────────────────────────────────────────────────
 
 const AIMatchInsights = ({ applicant, topRole }) => {
   const [showModal, setShowModal] = useState(false);
@@ -267,10 +289,9 @@ const AIMatchInsights = ({ applicant, topRole }) => {
     );
   }
 
-  const expData     = getExperienceLabel(applicant.ai_resume_score_json);
-  const resumeColor = getResumeColor(applicant.ai_resume_bucket);
-  const matchColor  = getMatchColor(applicant.ai_job_match_bucket);
-
+  const expData           = getExperienceLabel(applicant.ai_resume_score_json);
+  const resumeColor       = getResumeColor(applicant.ai_resume_bucket);
+  const matchColor        = getMatchColor(applicant.ai_job_match_bucket);
   const recommendedTitle  = topRole?.title ?? applicant.applied_position ?? "—";
   const recommendedScore  = topRole?.score != null ? Math.round(topRole.score) : null;
   const recommendedBucket = topRole?.bucket ?? null;
@@ -281,289 +302,260 @@ const AIMatchInsights = ({ applicant, topRole }) => {
     <>
       <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
         <div className="px-4 divide-y divide-slate-100">
-          <InsightRow
-            label="Resume Score"
-            value={hasResumeScore ? `${Math.round(applicant.ai_resume_score)}/100` : "—"}
-            valueColor={hasResumeScore ? resumeColor : "text-slate-400"}
-            subtext={applicant.ai_resume_bucket ?? undefined}
-          />
-          <InsightRow
-            label="Match Score"
-            value={hasJobMatch ? `${Math.round(applicant.ai_job_match_score)}/100` : "N/A"}
-            valueColor={hasJobMatch ? matchColor : "text-slate-400"}
-            subtext={hasJobMatch ? (applicant.ai_job_match_bucket ?? undefined) : "No job description set"}
-          />
-          <InsightRow
-            label="Experience"
-            value={expData.label}
-            valueColor={expData.color}
-          />
+          <InsightRow label="Resume Score" value={hasResumeScore ? `${Math.round(applicant.ai_resume_score)}/100` : "—"} valueColor={hasResumeScore ? resumeColor : "text-slate-400"} subtext={applicant.ai_resume_bucket ?? undefined} />
+          <InsightRow label="Match Score"  value={hasJobMatch ? `${Math.round(applicant.ai_job_match_score)}/100` : "N/A"} valueColor={hasJobMatch ? matchColor : "text-slate-400"} subtext={hasJobMatch ? (applicant.ai_job_match_bucket ?? undefined) : "No job description set"} />
+          <InsightRow label="Experience"   value={expData.label} valueColor={expData.color} />
           <InsightRow
             label="Recommended Role"
             value={recommendedTitle}
             valueColor={recColor}
-            subtext={
-              recommendedScore !== null
-                ? `${recommendedScore}% match${isBestFitDiff ? " · Better fit than applied role" : ""}`
-                : "See breakdown for all role comparisons"
-            }
+            subtext={recommendedScore !== null ? `${recommendedScore}% match${isBestFitDiff ? " · Better fit than applied role" : ""}` : "See breakdown for all role comparisons"}
           />
         </div>
-
         <button
           onClick={() => setShowModal(true)}
-          className="w-full flex items-center justify-center gap-1.5 py-3 text-xs font-bold text-[#2A5C9A] hover:bg-slate-50 transition-colors border-t border-slate-100"
+          className="w-full flex items-center justify-center gap-1.5 py-3 text-xs font-bold hover:bg-slate-50 transition-colors border-t border-slate-100"
+          style={{ color: TEAL }}
         >
-          See Score Breakdown & Role Comparisons
+          See Score Breakdown &amp; Role Comparisons
           <ChevronRight className="h-3.5 w-3.5" />
         </button>
       </div>
-
       {showModal && <BreakdownModal applicant={applicant} onClose={() => setShowModal(false)} />}
     </>
   );
 };
 
-// ─── Main Component ────────────────────────────────────────────────────────────
+// ── Main Component ────────────────────────────────────────────────────────────
 
-const ApplicantDetail = ({ applicantId, onClose, onRefresh }) => {
-  const [applicant, setApplicant]           = useState(null);
-  const [loading, setLoading]               = useState(true);
-  const [saving, setSaving]                 = useState(false);
+const ApplicantDetail = ({ applicantId, onClose, onRefresh, flagMap = new Map() }) => {
+  const [applicant,      setApplicant]      = useState(null);
+  const [loading,        setLoading]        = useState(true);
+  const [saving,         setSaving]         = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("");
-  const [rerunning, setRerunning]           = useState(false);
-  const [topRole, setTopRole]               = useState(null);
+  const [rerunning,      setRerunning]      = useState(false);
+  const [topRole,        setTopRole]        = useState(null);
   const [recruiterNotes, setRecruiterNotes] = useState("");
-  const [savingNotes, setSavingNotes]       = useState(false);
-  const [notesSaved, setNotesSaved]         = useState(false);
+  const [savingNotes,    setSavingNotes]    = useState(false);
+  const [notesSaved,     setNotesSaved]     = useState(false);
 
-  const fetchApplicant = async (signal) => {
+  const fetchApplicant = async () => {
     if (!applicantId) return;
     setLoading(true);
     try {
-      const res = await api.get(`/applicants/${applicantId}`, { signal });
+      const res = await axios.get(`${API_BASE_URL}/applicants/${applicantId}`);
       setApplicant(res.data);
       setSelectedStatus(res.data.hiring_status || "Pre-screening");
       setRecruiterNotes(res.data.recruiter_notes || "");
-
-      // Use stored recommended role immediately (fast path)
       const rec = res.data.ai_recommended_role;
       if (rec) {
         setTopRole({ title: rec, score: null, bucket: null });
       } else {
-        // Background fallback — doesn't block the panel
-        api.get(`/applicants/${applicantId}/role-suggestions`, { signal })
-          .then(r => {
-            const suggestions = r.data.suggestions || [];
-            if (suggestions.length > 0) setTopRole(suggestions[0]);
-          })
+        axios.get(`${API_BASE_URL}/applicants/${applicantId}/role-suggestions`)
+          .then(r => { const s = r.data.suggestions || []; if (s.length > 0) setTopRole(s[0]); })
           .catch(() => {});
       }
     } catch (err) {
-      if (err.name !== 'CanceledError') console.error(err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchApplicant(controller.signal);
-    return () => controller.abort();
-  }, [applicantId]);
+  useEffect(() => { fetchApplicant(); }, [applicantId]);
 
   const handleSaveNotes = async () => {
     try {
-      setSavingNotes(true);
-      setNotesSaved(false);
-      await api.patch(`/applicants/${applicantId}/notes`, { recruiter_notes: recruiterNotes });
+      setSavingNotes(true); setNotesSaved(false);
+      await axios.patch(`${API_BASE_URL}/applicants/${applicantId}/notes`, { recruiter_notes: recruiterNotes });
       setNotesSaved(true);
       setTimeout(() => setNotesSaved(false), 2500);
-    } catch (err) {
-      console.error("Failed to save notes:", err);
-    } finally {
-      setSavingNotes(false);
-    }
+    } catch (err) { console.error(err); }
+    finally { setSavingNotes(false); }
   };
 
   const handleConfirmMove = async () => {
     try {
       setSaving(true);
-      await api.patch(`/applicants/${applicantId}`, { hiring_status: selectedStatus });
+      await axios.patch(`${API_BASE_URL}/applicants/${applicantId}`, { hiring_status: selectedStatus });
       await onRefresh();
-      setApplicant((prev) => ({ ...prev, hiring_status: selectedStatus }));
-    } catch (err) {
-      console.error("Move failed:", err);
-    } finally {
-      setSaving(false);
-    }
+      setApplicant(prev => ({ ...prev, hiring_status: selectedStatus }));
+    } catch (err) { console.error(err); }
+    finally { setSaving(false); }
   };
 
   const handleRunPrescreen = async () => {
     try {
       setRerunning(true);
-      await api.post(`/applicants/${applicantId}/prescreen`);
+      await axios.post(`${API_BASE_URL}/applicants/${applicantId}/prescreen`);
       await fetchApplicant();
-    } catch (err) {
-      console.error("Prescreen failed:", err);
-    } finally {
-      setRerunning(false);
-    }
+    } catch (err) { console.error(err); }
+    finally { setRerunning(false); }
   };
 
-  const handleViewResume = () => {
-    window.open(`${api.defaults.baseURL}/applicants/${applicantId}/resume`, "_blank");
-  };
+  const handleViewResume = () => window.open(`${API_BASE_URL}/applicants/${applicantId}/resume`, "_blank");
 
-  if (loading) return (
-    <div className="h-full flex items-center justify-center">
-      <Loader2 size={28} className="animate-spin text-[#2A5C9A]" />
-    </div>
-  );
-
+  if (loading) return <div className="p-8 text-center text-slate-500">Loading candidate…</div>;
   if (!applicant) return null;
 
   const hasChanged = selectedStatus !== applicant.hiring_status;
+  const flags      = getFlags(flagMap, applicantId);
+  const hasAnyFlag = flags.isDuplicate || flags.isIncomplete;
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-7 pt-6 pb-4 border-b border-slate-100 shrink-0">
-        <div>
-          <h2 className="text-lg font-black text-slate-800">
-            {applicant.f_name} {applicant.l_name}
-          </h2>
-          <p className="text-xs text-slate-400 font-medium mt-0.5">{applicant.email}</p>
+    <Card className="h-full w-full rounded-none border-0 shadow-none bg-white overflow-y-auto">
+
+      {/* Branded header */}
+      <CardHeader
+        className="flex flex-row items-center justify-between pb-5 shrink-0 text-white"
+        style={{ background: `linear-gradient(135deg, ${NAVY} 0%, ${TEAL} 100%)` }}
+      >
+        <div className="space-y-0.5">
+          <CardTitle className="text-base font-black text-white">Candidate Profile</CardTitle>
+          <p className="text-[10px] text-white/60 font-bold uppercase tracking-wider">ID: #{applicantId}</p>
         </div>
-        <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 transition-colors">
-          <X size={18} className="text-slate-400" />
-        </button>
-      </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onClose}
+          className="rounded-full hover:bg-white/20 text-white"
+        >
+          <X className="h-5 w-5" />
+        </Button>
+      </CardHeader>
 
-      {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto">
-        <Card className="border-0 shadow-none rounded-none">
-          <CardContent className="px-7 py-6 space-y-6">
+      <CardContent className="space-y-8 pt-6 pb-10">
 
-            {/* Contact details */}
-            <div className="space-y-1">
-              <DetailItem label="Email"            value={applicant.email}            icon={<Mail     className="h-4 w-4 text-[#2A5C9A]" />} />
-              <DetailItem label="Phone Number"     value={applicant.phone}            icon={<Phone    className="h-4 w-4 text-[#2A5C9A]" />} />
-              <DetailItem label="Applied Position" value={applicant.applied_position} icon={<Briefcase className="h-4 w-4 text-[#2A5C9A]" />} />
+        {/* Flag banner */}
+        {hasAnyFlag && (
+          <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 space-y-2">
+            <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest flex items-center gap-1.5">
+              <AlertTriangle size={11} /> Flags Requiring Review
+            </p>
+            <ul className="space-y-1.5">
+              {flags.reasons.map((reason, i) => (
+                <li key={i} className="flex items-start gap-1.5 text-xs text-amber-700">
+                  <span className="mt-0.5 shrink-0 opacity-70">
+                    {reason.toLowerCase().startsWith("duplicate") ? <Copy size={10} /> : "•"}
+                  </span>
+                  {reason}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
-              <button
-                onClick={handleViewResume}
-                className="flex items-center gap-2 text-sm font-bold text-[#2A5C9A] hover:text-[#1e4470] hover:underline transition-colors pt-1"
-              >
-                <FileText className="h-4 w-4" />
-                View Resume
-              </button>
+        {/* Personal Info */}
+        <div className="space-y-5">
+          <DetailItem label="Full Name"        value={`${applicant.f_name} ${applicant.l_name}`} icon={<User    className="h-4 w-4" style={{ color: TEAL }} />} />
+          <DetailItem label="Email Address"    value={applicant.email}                            icon={<Mail    className="h-4 w-4" style={{ color: TEAL }} />} />
+          <DetailItem label="Phone Number"     value={applicant.phone}                            icon={<Phone   className="h-4 w-4" style={{ color: TEAL }} />} />
+          <DetailItem label="Applied Position" value={applicant.applied_position}                 icon={<Briefcase className="h-4 w-4" style={{ color: TEAL }} />} />
+          <button
+            onClick={handleViewResume}
+            className="flex items-center gap-2 text-sm font-bold hover:underline transition-colors"
+            style={{ color: TEAL }}
+          >
+            <FileText className="h-4 w-4" /> View Resume
+          </button>
+        </div>
+
+        <Separator />
+
+        {/* Hiring Stage */}
+        <div className="space-y-4">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Move to Column</label>
+          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+            <SelectTrigger className="w-full h-12 border-2 border-slate-100 bg-slate-50 font-bold" style={{ color: NAVY }}>
+              <SelectValue placeholder="Select stage…" />
+            </SelectTrigger>
+            <SelectContent className="bg-white border border-slate-200 rounded-xl shadow-xl z-[200]" position="popper" sideOffset={5}>
+              {HIRING_STAGES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
+
+          {hasChanged && (
+            <button
+              onClick={handleConfirmMove}
+              disabled={saving}
+              className="w-full h-12 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-60 animate-in slide-in-from-bottom-2"
+              style={{ background: `linear-gradient(135deg, ${NAVY} 0%, ${TEAL} 100%)` }}
+            >
+              {saving ? "Updating…" : <><Send className="h-4 w-4" />Confirm Move to {selectedStatus}</>}
+            </button>
+          )}
+
+          <button
+            onClick={handleRunPrescreen}
+            disabled={rerunning}
+            className="w-full h-12 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-60"
+          >
+            <Sparkles size={16} />
+            {rerunning ? "Running…" : "Rerun Prescreen"}
+          </button>
+
+          <p className="text-[10px] text-slate-400 italic">
+            * Applicant stays in their current column until you click "Confirm Move".
+          </p>
+        </div>
+
+        <Separator />
+
+        {/* AI Prescreening Summary */}
+        <div className="space-y-2">
+          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">IntelliHire AI Prescreening Summary</h3>
+          {typeof applicant?.ai_prescreening_summary === "string" && applicant.ai_prescreening_summary.trim().length > 0 ? (
+            <div className="p-4 bg-white border border-slate-100 rounded-xl shadow-sm leading-relaxed">
+              <ReactMarkdown>{applicant.ai_prescreening_summary}</ReactMarkdown>
             </div>
-
-            <Separator />
-
-            {/* Hiring Stage */}
-            <div className="space-y-4">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Move to Column</label>
-              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger className="w-full h-12 border-2 border-slate-100 bg-slate-50 font-bold text-[#2A5C9A]">
-                  <SelectValue placeholder="Select stage…" />
-                </SelectTrigger>
-                <SelectContent className="z-[100]" position="popper" sideOffset={5}>
-                  {HIRING_STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
-
-              {hasChanged && (
-                <Button
-                  onClick={handleConfirmMove}
-                  disabled={saving}
-                  className="w-full h-12 bg-[#2A5C9A] hover:bg-[#1e4470] text-white font-bold rounded-xl shadow-lg transition-all animate-in slide-in-from-bottom-2"
-                >
-                  {saving ? "Updating…" : <><Send className="mr-2 h-4 w-4" />Confirm Move to {selectedStatus}</>}
-                </Button>
-              )}
-
-              <Button
-                onClick={handleRunPrescreen}
-                disabled={rerunning}
-                className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg flex items-center gap-2"
-              >
-                <Sparkles size={16} />
-                {rerunning ? "Running…" : "Rerun Prescreen"}
-              </Button>
-
-              <p className="text-[10px] text-slate-400 italic">
-                * Applicant stays in their current column until you click "Confirm Move".
-              </p>
+          ) : (
+            <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
+              <p className="text-sm text-slate-500">No prescreening summary yet.</p>
             </div>
+          )}
+        </div>
 
-            <Separator />
+        {/* AI Match Insights */}
+        <div className="space-y-2">
+          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">IntelliHire AI Match Insights</h3>
+          <AIMatchInsights applicant={applicant} topRole={topRole} />
+        </div>
 
-            {/* AI Prescreening Summary */}
-            <div className="space-y-2">
-              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                IntelliHire AI Prescreening Summary
-              </h3>
-              {typeof applicant?.ai_prescreening_summary === "string" &&
-               applicant.ai_prescreening_summary.trim().length > 0 ? (
-                <div className="p-4 bg-white border border-slate-100 rounded-xl shadow-sm leading-relaxed">
-                  <ReactMarkdown>{applicant.ai_prescreening_summary}</ReactMarkdown>
-                </div>
-              ) : (
-                <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
-                  <p className="text-sm text-slate-500">No prescreening summary yet.</p>
-                </div>
-              )}
-            </div>
+        <Separator />
 
-            {/* AI Match Insights */}
-            <div className="space-y-2">
-              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                IntelliHire AI Match Insights
-              </h3>
-              <AIMatchInsights applicant={applicant} topRole={topRole} />
-            </div>
+        {/* Recruiter Notes */}
+        <div className="space-y-3">
+          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recruiter Notes</h3>
+          <textarea
+            rows={5}
+            value={recruiterNotes}
+            onChange={e => { setRecruiterNotes(e.target.value); setNotesSaved(false); }}
+            placeholder="Add internal notes about this candidate — interview impressions, concerns, follow-ups..."
+            className="w-full bg-slate-50 border-2 border-transparent rounded-xl px-4 py-3 text-sm text-slate-700 placeholder:text-slate-300 outline-none resize-none transition-all leading-relaxed"
+            style={{ focusBorderColor: TEAL }}
+            onFocus={e => e.target.style.borderColor = TEAL}
+            onBlur={e  => e.target.style.borderColor = 'transparent'}
+          />
+          <button
+            onClick={handleSaveNotes}
+            disabled={savingNotes}
+            className="w-full py-3 rounded-xl text-white text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+            style={{ background: `linear-gradient(135deg, ${NAVY} 0%, ${TEAL} 100%)` }}
+          >
+            {savingNotes ? (
+              <>
+                <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                </svg>
+                Saving…
+              </>
+            ) : notesSaved ? "✓ Notes Saved" : "Save Notes"}
+          </button>
+        </div>
 
-            <Separator />
-
-            {/* Recruiter Notes */}
-            <div className="space-y-3">
-              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                Recruiter Notes
-              </h3>
-              <textarea
-                rows={5}
-                value={recruiterNotes}
-                onChange={(e) => { setRecruiterNotes(e.target.value); setNotesSaved(false); }}
-                placeholder="Add internal notes about this candidate — interview impressions, concerns, follow-ups..."
-                className="w-full bg-slate-50 border-2 border-transparent focus:border-[#2A5C9A] rounded-xl px-4 py-3 text-sm text-slate-700 placeholder:text-slate-300 outline-none resize-none transition-all leading-relaxed"
-              />
-              <button
-                onClick={handleSaveNotes}
-                disabled={savingNotes}
-                className="w-full py-3 rounded-xl bg-[#2A5C9A] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#1e4470] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {savingNotes ? (
-                  <>
-                    <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                    </svg>
-                    Saving…
-                  </>
-                ) : notesSaved ? (
-                  "✓ Notes Saved"
-                ) : (
-                  "Save Notes"
-                )}
-              </button>
-            </div>
-
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 };
 

@@ -1,7 +1,7 @@
 // frontend/src/components/admin/AI.jsx
 import React, { useState, useMemo, useEffect } from 'react';
 import { api } from '@/config/api';
-import { SlidersHorizontal, Trophy, Search, FileText, Sparkles, Briefcase, Loader2 } from 'lucide-react';
+import { SlidersHorizontal, Trophy, Search, FileText, Sparkles, Briefcase, Loader2, Play, CheckCircle2, XCircle, RotateCcw } from 'lucide-react';
 import CandidateModal from '../modals/CandidateModal';
 
 const DEFAULT_WEIGHTS = { structure: 30, experience: 30, impact: 25, clarity: 15 };
@@ -246,6 +246,58 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
     setModalApp(full || appOrResult);
   };
 
+  // ── Bulk Prescreen ────────────────────────────────────────────────────────
+  const [bulkRunning,  setBulkRunning]  = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(0);
+  const [bulkTotal,    setBulkTotal]    = useState(0);
+  const [bulkDone,     setBulkDone]     = useState(null); // null = idle, number = completed count
+  const [bulkErrors,   setBulkErrors]   = useState([]);   // names that failed
+  const [bulkFilter,   setBulkFilter]   = useState('unscreened'); // 'unscreened' | 'all'
+
+  const unscreenedCount = useMemo(
+    () => applicants.filter(a => a.ai_resume_score == null).length,
+    [applicants]
+  );
+
+  const bulkQueue = useMemo(() => {
+    if (bulkFilter === 'all') return applicants.filter(a => a.id);
+    return applicants.filter(a => a.ai_resume_score == null && a.id);
+  }, [applicants, bulkFilter]);
+
+  const runBulkPrescreen = async () => {
+    if (bulkRunning || bulkQueue.length === 0) return;
+    setBulkRunning(true);
+    setBulkProgress(0);
+    setBulkTotal(bulkQueue.length);
+    setBulkDone(null);
+    setBulkErrors([]);
+
+    let completed = 0;
+    const errors  = [];
+
+    for (const app of bulkQueue) {
+      try {
+        await api.post(`/applicants/${app.id}/prescreen`);
+      } catch {
+        const name = `${app.f_name || ''} ${app.l_name || ''}`.trim() || app.id;
+        errors.push(name);
+      }
+      completed += 1;
+      setBulkProgress(completed);
+    }
+
+    setBulkRunning(false);
+    setBulkDone(completed - errors.length);
+    setBulkErrors(errors);
+  };
+
+  const resetBulk = () => {
+    setBulkDone(null);
+    setBulkErrors([]);
+    setBulkProgress(0);
+    setBulkTotal(0);
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
 
@@ -320,6 +372,131 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
           </div>
 
         </div>
+      </Panel>
+
+      {/* 2. Bulk Prescreen */}
+      <Panel
+        icon={Play}
+        iconBg="bg-[#00AECC]"
+        title="Bulk Prescreen"
+        subtitle="Run AI prescreening on multiple applicants at once"
+        action={
+          <div className="flex items-center gap-2">
+            {/* Filter toggle */}
+            <div className="flex bg-slate-100 rounded-xl p-1">
+              {[
+                { val: 'unscreened', label: `Unscreened (${unscreenedCount})` },
+                { val: 'all',        label: `All (${applicants.length})` },
+              ].map(({ val, label }) => (
+                <button
+                  key={val}
+                  disabled={bulkRunning}
+                  onClick={() => { setBulkFilter(val); resetBulk(); }}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-black transition-all disabled:opacity-50 ${
+                    bulkFilter === val ? 'bg-white text-[#1A3C6E] shadow-sm' : 'text-slate-400'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Run / reset button */}
+            {bulkDone !== null ? (
+              <button
+                onClick={resetBulk}
+                className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wide px-4 py-1.5 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all"
+              >
+                <RotateCcw size={12} /> Reset
+              </button>
+            ) : (
+              <button
+                onClick={runBulkPrescreen}
+                disabled={bulkRunning || bulkQueue.length === 0}
+                className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wide px-4 py-1.5 rounded-xl text-white transition-all disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #1A3C6E 0%, #00AECC 100%)' }}
+              >
+                {bulkRunning ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+                {bulkRunning ? 'Running…' : `Run ${bulkQueue.length} Applicant${bulkQueue.length !== 1 ? 's' : ''}`}
+              </button>
+            )}
+          </div>
+        }
+      >
+        {/* Idle state */}
+        {!bulkRunning && bulkDone === null && (
+          <div className="flex items-center gap-6 py-2">
+            <div className="flex-1 grid grid-cols-3 gap-4">
+              {[
+                { label: 'Total Applicants',  value: applicants.length,  color: '#1A3C6E' },
+                { label: 'Already Screened',  value: applicants.length - unscreenedCount, color: '#00AECC' },
+                { label: 'Pending Screening', value: unscreenedCount,    color: unscreenedCount > 0 ? '#f59e0b' : '#10b981' },
+              ].map(({ label, value, color }) => (
+                <div key={label} className="bg-slate-50 rounded-2xl px-5 py-4 border border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+                  <p className="text-2xl font-black" style={{ color }}>{value}</p>
+                </div>
+              ))}
+            </div>
+            {bulkQueue.length === 0 && (
+              <div className="flex items-center gap-2 text-emerald-600">
+                <CheckCircle2 size={18} />
+                <span className="text-xs font-bold">All applicants already screened</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Running state — progress bar */}
+        {bulkRunning && (
+          <div className="py-2 space-y-3">
+            <div className="flex items-center justify-between text-xs font-bold text-slate-600">
+              <span>Processing applicants…</span>
+              <span style={{ color: '#1A3C6E' }}>{bulkProgress} / {bulkTotal}</span>
+            </div>
+            <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{
+                  width: bulkTotal > 0 ? `${(bulkProgress / bulkTotal) * 100}%` : '0%',
+                  background: 'linear-gradient(90deg, #1A3C6E 0%, #00AECC 100%)',
+                }}
+              />
+            </div>
+            <p className="text-[10px] text-slate-400">This may take a while — each applicant's resume is being scored by AI</p>
+          </div>
+        )}
+
+        {/* Done state */}
+        {bulkDone !== null && (
+          <div className="py-2 flex items-start gap-5">
+            {/* Success count */}
+            <div className="flex items-center gap-3 flex-1">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
+                <CheckCircle2 size={20} className="text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-sm font-black text-slate-800">{bulkDone} applicant{bulkDone !== 1 ? 's' : ''} screened successfully</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">Scores and buckets have been updated in Firebase</p>
+              </div>
+            </div>
+
+            {/* Errors */}
+            {bulkErrors.length > 0 && (
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center shrink-0">
+                  <XCircle size={20} className="text-rose-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-black text-slate-800">{bulkErrors.length} failed</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5 max-w-xs truncate">
+                    {bulkErrors.slice(0, 3).join(', ')}{bulkErrors.length > 3 ? ` +${bulkErrors.length - 3} more` : ''}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </Panel>
 
       {/* Bottom row */}
