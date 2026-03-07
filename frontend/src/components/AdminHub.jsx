@@ -17,6 +17,7 @@ import AITab           from "./admin/AI";
 import ActivityLog     from "./admin/ActivityLog";
 import ApplicantDetail from "./ApplicantDetail";
 import JobModal        from './modals/JobModal';
+import { useNavigate } from 'react-router-dom';
 
 // ── ProgressPro brand ─────────────────────────────────────────────────────────
 const NAVY      = '#1A3C6E';
@@ -103,9 +104,25 @@ const SearchBar = ({ value, onChange, placeholder }) => (
   </div>
 );
 
+
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 const AdminPortal = () => {
+  
+
+const navigate = useNavigate();
+
+useEffect(() => {
+  const token = localStorage.getItem('token');
+  const role  = localStorage.getItem('role'); // if you store admin role
+
+  // Redirect if not logged in or not admin
+  if (!token || role !== 'admin') {
+    navigate('/login');
+  }
+}, [navigate]);
+
   const {
     applicants, employees, loading: appLoading,
     handleSaveEmployee, handleDeleteApplicant, refresh: refreshApplicants,
@@ -124,7 +141,7 @@ const AdminPortal = () => {
   const [selectedApplicantId, setSelectedApplicantId] = useState(null);
   const [isJobModalOpen,      setIsJobModalOpen]      = useState(false);
   const [editingJob,          setEditingJob]          = useState(null);
-  const [toast,               setToast]               = useState(null);
+  const [ ,               setToast]               = useState(null);
 
   // Document title
   useEffect(() => {
@@ -249,13 +266,21 @@ const AdminPortal = () => {
             />
           ))}
         </nav>
-        <button
-          className="flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:text-rose-500 transition-colors mt-2 rounded-xl hover:bg-rose-50 text-sm"
-          style={collapsed ? { justifyContent: 'center' } : {}}
-        >
-          <LogOut size={17} />
-          {!collapsed && <span className="font-medium">Logout</span>}
-        </button>
+      <button
+       onClick={() => {
+    
+      setToast({ type: 'success', message: 'Logged out successfully.' });
+      localStorage.removeItem("token");
+      localStorage.removeItem("role");
+
+      setTimeout(() => window.location.href = "/login", 1500);
+        }}
+        className="flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:text-rose-500 transition-colors mt-2 rounded-xl hover:bg-rose-50 text-sm"
+        style={collapsed ? { justifyContent: 'center' } : {}}
+      >
+        <LogOut size={17} />
+        {!collapsed && <span className="font-medium">Logout</span>}
+      z</button>
       </aside>
 
       {/* Main */}
