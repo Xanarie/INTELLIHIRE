@@ -123,3 +123,10 @@ class EmployeeResponse(BaseModel):
 
 class StatusUpdate(BaseModel):
     hiring_status: str
+
+
+# ── Authentication ────────────────────────────────────────────────────────────
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str

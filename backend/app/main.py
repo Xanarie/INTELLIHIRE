@@ -9,6 +9,7 @@ from app.routers import applicants, admin
 from app.routers.logs import router as logs_router
 from app.ai.routers.ai import router as ai_router
 from app.firebase_client import get_db
+from app.routers.auth import router as auth_router
 
 
 @asynccontextmanager
@@ -34,6 +35,7 @@ app.include_router(ai_router,    prefix="/ai", tags=["AI"])
 app.include_router(applicants.router)
 app.include_router(admin.router)
 app.include_router(logs_router)
+app.include_router(auth_router, prefix="/auth")
 
 
 @app.get("/")
