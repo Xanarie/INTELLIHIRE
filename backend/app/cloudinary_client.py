@@ -1,5 +1,3 @@
-# backend/app/cloudinary_client.py
-#
 # Handles all resume uploads/deletes via Cloudinary.
 # Resumes are stored as raw files (PDF/DOCX) — no transformations needed.
 #
