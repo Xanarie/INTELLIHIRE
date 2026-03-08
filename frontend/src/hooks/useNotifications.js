@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { ref, push, onValue, off, get, set } from 'firebase/database';
-import { db, auth } from '../firebaseConfig';
+import { db, auth } from '../../../backend/firebaseConfig';
 
 /**
  * Writes a notification to Firebase RTDB.

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { auth } from "../firebaseConfig";
+import { auth } from "../../../backend/firebaseConfig";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { CheckCircle2, X } from "lucide-react";
 

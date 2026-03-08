@@ -24,7 +24,7 @@ import {
   onAuthStateChanged, updatePassword, updateProfile, updateEmail,
   EmailAuthProvider, reauthenticateWithCredential,
 } from 'firebase/auth';
-import { auth } from '../firebaseConfig';
+import { auth } from '../../../backend/firebaseConfig';
 import { useNotifications, pushNotification } from '../hooks/useNotifications';
 import NotificationBell from './NotificationBell';
 
