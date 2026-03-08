@@ -6,7 +6,7 @@ const STAGE_BADGE = {
   'screening':     'bg-indigo-50 text-indigo-600 border border-indigo-100',
   'interview':     'bg-amber-50 text-amber-600 border border-amber-100',
   'offer':         'bg-violet-50 text-violet-600 border border-violet-100',
-  'hired':         'bg-emerald-50 text-emerald-700 border border-emerald-100',
+  'accepted':         'bg-emerald-50 text-emerald-700 border border-emerald-100',
   'rejected':      'bg-rose-50 text-rose-600 border border-rose-100',
 };
 

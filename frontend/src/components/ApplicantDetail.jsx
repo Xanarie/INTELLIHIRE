@@ -17,7 +17,7 @@ import { getFlags } from "../utils/flagUtils";
 
 const API_BASE_URL = "http://localhost:8000/api/admin";
 
-const HIRING_STAGES = ["Pre-screening", "Screening", "Interview", "Offer", "Hired", "Rejected"];
+const HIRING_STAGES = ["Pre-screening", "Screening", "Interview", "Offer", "Accepted", "Rejected"];
 
 // ── ProgressPro brand ─────────────────────────────────────────────────────────
 const NAVY      = "#1A3C6E";

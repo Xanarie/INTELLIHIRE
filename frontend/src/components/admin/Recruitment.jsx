@@ -1,9 +1,8 @@
 import React, { useMemo } from 'react';
 import { Trash2, MoreVertical, Briefcase, Star, Clock3, Sparkles } from 'lucide-react';
 
-// Moved outside component so useMemo has a stable dependency (fixes exhaustive-deps warning)
 const PIPELINE_STAGES = [
-  "Pre-screening", "Screening", "Interview", "Offer", "Hired", "Rejected"
+  "Pre-screening", "Screening", "Interview", "Offer", "Accepted", "Rejected"
 ];
 
 const RecruitmentTab = ({ applicants = [], onSelect, onDelete }) => {
@@ -19,7 +18,6 @@ const RecruitmentTab = ({ applicants = [], onSelect, onDelete }) => {
     return groups;
   }, [applicants]);
 
-  // Pull match score from whichever AI field is available
   const getMatchScore = (app) => {
     const score =
       app.ai_job_match_score ??
@@ -30,7 +28,6 @@ const RecruitmentTab = ({ applicants = [], onSelect, onDelete }) => {
     return Math.round(Number(score));
   };
 
-  // Map experience_signals (0-30 score from AI) to a readable label
   const getExperience = (app) => {
     const signals =
       app.ai_resume_score_json?.breakdown?.experience_signals ??
@@ -60,7 +57,7 @@ const RecruitmentTab = ({ applicants = [], onSelect, onDelete }) => {
               index === PIPELINE_STAGES.length - 1 ? 'border-r-0' : ''
             }`}
           >
-            {/* Column Header — sticky so it stays visible while scrolling */}
+            {/* Column Header */}
             <div className="bg-[#E8F0F8] px-4 py-3 border-b-2 border-[#2A5C9A]/20 flex items-center justify-between shrink-0">
               <h3 className="font-black text-[#2A5C9A] text-[10px] uppercase tracking-wider">
                 {stage}
@@ -70,7 +67,7 @@ const RecruitmentTab = ({ applicants = [], onSelect, onDelete }) => {
               </span>
             </div>
 
-            {/* Cards — scrollable independently per column */}
+            {/* Cards */}
             <div className="p-3 space-y-3 bg-slate-50/30 pb-6 flex-1 min-h-0 overflow-y-auto [&::-webkit-scrollbar]:w-[3px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300">
               {groupedApplicants[stage].map((app) => {
                 const targetId = app.id || app.applicantid || app.applicant_id;
@@ -139,7 +136,6 @@ const RecruitmentTab = ({ applicants = [], onSelect, onDelete }) => {
                 );
               })}
 
-              {/* Empty slot placeholders */}
               {groupedApplicants[stage].length === 0 && (
                 <div className="flex flex-col items-center justify-center py-10 text-slate-200">
                   <MoreVertical size={20} />
