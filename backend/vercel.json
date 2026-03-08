@@ -13,18 +13,3 @@
     }
   ]
 }
-```
-
----
-
-### Step 6: Add a `requirements.txt` in `backend/`
-
-Make sure `backend/requirements.txt` exists and includes all dependencies:
-```
-fastapi
-uvicorn
-firebase-admin
-pymupdf
-cloudinary
-python-multipart
-requests
