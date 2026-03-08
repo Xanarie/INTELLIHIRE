@@ -2,6 +2,8 @@
 import os
 import tempfile
 import requests
+from firebase_admin import auth as firebase_auth
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Optional
@@ -22,6 +24,7 @@ from app.ai.resume_score import score_resume_quality
 from app.ai.matching     import score_applicant
 from app.ai.summarizer   import summarize_prescreen
 from app.routers.logs    import write_log
+
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
@@ -451,6 +454,15 @@ def delete_job(job_id: str, request: Request):
 # ═══════════════════════════════════════════════════════════════════════════════
 # EMPLOYEES
 # ═══════════════════════════════════════════════════════════════════════════════
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 1 — Add this import at the TOP of admin.py with the other imports:
+#
+# STEP 2 — Replace the entire EMPLOYEES section in admin.py with this:
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EMPLOYEES
+# ═══════════════════════════════════════════════════════════════════════════════
 
 @router.get("/employees")
 def get_all_employees():
@@ -460,22 +472,80 @@ def get_all_employees():
 
 
 @router.post("/employees")
-def create_employee(emp_data: dict, request: Request):
+def create_employee(emp_data: dict):
     db = get_db()
+
+    email           = emp_data.get("email", "").strip()
+    password        = emp_data.get("password", "")
+    name            = emp_data.get("name", "").strip()
+    permission_role = emp_data.get("permission_role", "Recruiter").strip()
+
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required.")
+    if len(password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters.")
+    if permission_role not in ("Admin", "Recruiter"):
+        raise HTTPException(status_code=400, detail="permission_role must be 'Admin' or 'Recruiter'.")
+
+    # Create Firebase Auth user — does NOT affect the current admin session
+    try:
+        firebase_user = firebase_auth.create_user(
+            email        = email,
+            password     = password,
+            display_name = name,
+        )
+    except firebase_auth.EmailAlreadyExistsError:
+        raise HTTPException(status_code=409, detail="An account with this email already exists.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Firebase Auth error: {str(e)}")
+
     payload = {
-        "name": emp_data.get("name", ""), "role": emp_data.get("role", ""),
-        "dept": emp_data.get("dept", "General"),
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "name":            name,
+        "email":           email,
+        "permission_role": permission_role,
+        "uid":             firebase_user.uid,
+        "created_at":      datetime.now(timezone.utc).isoformat(),
     }
     _, ref        = db.collection("employees").add(payload)
     payload["id"] = ref.id
+
     write_log(
         action="employee_added", entity_type="employee",
-        entity_id=ref.id,       entity_name=payload["name"],
-        details=f"Employee '{payload['name']}' added as {payload['role']}.",
-        performed_by=request.headers.get("X-Performed-By", "System"),
+        entity_id=ref.id,       entity_name=name,
+        details=f"Employee '{name}' ({email}) added as {permission_role}.",
     )
     return payload
+
+
+@router.delete("/employees/{employee_id}")
+def delete_employee(employee_id: str):
+    db  = get_db()
+    ref = db.collection("employees").document(employee_id)
+    doc = ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Employee not found.")
+
+    data  = doc_to_dict(doc)
+    name  = data.get("name", employee_id)
+    uid   = data.get("uid")
+
+    # Delete Firebase Auth user if uid is present
+    if uid:
+        try:
+            firebase_auth.delete_user(uid)
+        except firebase_auth.UserNotFoundError:
+            pass  # already deleted from Auth — still remove Firestore record
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Firebase Auth delete error: {str(e)}")
+
+    ref.delete()
+
+    write_log(
+        action="employee_deleted", entity_type="employee",
+        entity_id=employee_id,    entity_name=name,
+        details=f"Employee '{name}' and their Auth account removed.",
+    )
+    return {"message": f"Employee {employee_id} deleted successfully."}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
