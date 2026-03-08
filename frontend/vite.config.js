@@ -9,4 +9,9 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"),
     },
   },
+  build: {
+    rollupOptions: {
+      external: [], // keep empty or only add libraries you intentionally want to externalize
+    },
+  },
 });
