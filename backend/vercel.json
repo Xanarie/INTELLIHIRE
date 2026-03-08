@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "app/main.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "app/main.py"
+    }
+  ]
+}
+```
+
+---
+
+### Step 6: Add a `requirements.txt` in `backend/`
+
+Make sure `backend/requirements.txt` exists and includes all dependencies:
+```
+fastapi
+uvicorn
+firebase-admin
+pymupdf
+cloudinary
+python-multipart
+requests

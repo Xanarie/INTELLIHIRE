@@ -3,6 +3,10 @@ from pydantic import BaseModel
 import firebase_admin
 from firebase_admin import auth as firebase_auth, credentials
 
+import os, json
+
+service_account_info = json.loads(os.environ["FIREBASE_SERVICE_ACCOUNT"])
+cred = credentials.Certificate(service_account_info)
 
 # Initialize Firebase Admin once
 cred = credentials.Certificate("serviceAccountKey.json")

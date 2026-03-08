@@ -1,3 +1,11 @@
 firebase-admin==6.5.0
 cloudinary==1.40.0
 requests==2.31.0
+
+fastapi
+uvicorn
+firebase-admin
+pymupdf
+cloudinary
+python-multipart
+requests
