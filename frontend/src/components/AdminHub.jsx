@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAdminData } from '../hooks/useAdminData';
 import { useJobData }   from '../hooks/useJobData';
+import axios from 'axios';
 import {
   LayoutDashboard, Users, Briefcase, Sparkles,
   Search, LogOut, X, CheckCircle2, GraduationCap, ScrollText,
@@ -20,7 +21,7 @@ import ApplicantDetail from "./ApplicantDetail";
 import JobModal        from './modals/JobModal';
 import { useNavigate } from 'react-router-dom';
 import {
-  onAuthStateChanged, updatePassword,
+  onAuthStateChanged, updatePassword, updateProfile, updateEmail,
   EmailAuthProvider, reauthenticateWithCredential,
 } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
@@ -231,16 +232,68 @@ const SettingsPanel = ({ onClose, onToast }) => {
   const user = auth.currentUser;
   const role = localStorage.getItem('role') || 'admin';
   const displayRole = role.charAt(0).toUpperCase() + role.slice(1);
-  const displayName = user?.displayName || user?.email?.split('@')[0] || 'Admin User';
+
+  const [isEditing,   setIsEditing]   = useState(false);
+  const [editName,    setEditName]    = useState(user?.displayName || user?.email?.split('@')[0] || '');
+  const [editEmail,   setEditEmail]   = useState(user?.email || '');
+  const [editPw,      setEditPw]      = useState('');
+  const [showEditPw,  setShowEditPw]  = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
 
   const [showPermissions, setShowPermissions] = useState(false);
-  const [currentPw, setCurrentPw] = useState('');
-  const [newPw,     setNewPw]     = useState('');
-  const [confirmPw, setConfirmPw] = useState('');
-  const [showCur,   setShowCur]   = useState(false);
-  const [showNew,   setShowNew]   = useState(false);
-  const [showConf,  setShowConf]  = useState(false);
-  const [pwLoading, setPwLoading] = useState(false);
+  const [currentPw,  setCurrentPw]  = useState('');
+  const [newPw,      setNewPw]      = useState('');
+  const [confirmPw,  setConfirmPw]  = useState('');
+  const [showCur,    setShowCur]    = useState(false);
+  const [showNew,    setShowNew]    = useState(false);
+  const [showConf,   setShowConf]   = useState(false);
+  const [pwLoading,  setPwLoading]  = useState(false);
+
+  const displayName = user?.displayName || user?.email?.split('@')[0] || 'Admin User';
+
+  const emailChanged = editEmail.trim().toLowerCase() !== (user?.email || '').toLowerCase();
+
+  const handleSaveAccount = async () => {
+    if (!editName.trim()) {
+      onToast({ type: 'error', message: 'Name cannot be empty.' });
+      return;
+    }
+    if (emailChanged && !editPw) {
+      onToast({ type: 'error', message: 'Enter your current password to change email.' });
+      return;
+    }
+    try {
+      setEditLoading(true);
+      if (editName.trim() !== user.displayName) {
+        await updateProfile(user, { displayName: editName.trim() });
+      }
+      if (emailChanged) {
+        const credential = EmailAuthProvider.credential(user.email, editPw);
+        await reauthenticateWithCredential(user, credential);
+        await updateEmail(user, editEmail.trim());
+      }
+      setIsEditing(false);
+      setEditPw('');
+      onToast({ type: 'success', message: 'Account information updated.' });
+    } catch (err) {
+      const msg =
+        err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential'
+          ? 'Current password is incorrect.'
+          : err.code === 'auth/invalid-email'
+          ? 'Invalid email address.'
+          : err.message;
+      onToast({ type: 'error', message: msg });
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditName(user?.displayName || user?.email?.split('@')[0] || '');
+    setEditEmail(user?.email || '');
+    setEditPw('');
+    setIsEditing(false);
+  };
 
   const handleChangePassword = async () => {
     if (!currentPw || !newPw || !confirmPw) {
@@ -282,10 +335,7 @@ const SettingsPanel = ({ onClose, onToast }) => {
           <p className="text-base font-black text-slate-800">Settings</p>
           <p className="text-[10px] text-slate-400 font-medium mt-0.5">Manage your account</p>
         </div>
-        <button
-          onClick={onClose}
-          className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600"
-        >
+        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600">
           <X size={16} />
         </button>
       </div>
@@ -294,9 +344,30 @@ const SettingsPanel = ({ onClose, onToast }) => {
 
         {/* ── Account Information ── */}
         <div>
-          <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-3">
-            Account Information
-          </p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider">Account Information</p>
+            {!isEditing ? (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="flex items-center gap-1 text-[11px] font-bold transition-colors hover:opacity-70"
+                style={{ color: TEAL }}
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+                Edit
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button onClick={handleCancelEdit} disabled={editLoading} className="text-[11px] font-bold text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50">Cancel</button>
+                <button onClick={handleSaveAccount} disabled={editLoading} className="text-[11px] font-bold text-white px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50" style={{ background: NAVY }}>
+                  {editLoading ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            )}
+          </div>
+
           <div className="space-y-3">
 
             {/* Name */}
@@ -304,9 +375,18 @@ const SettingsPanel = ({ onClose, onToast }) => {
               <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: TEAL_LIGHT }}>
                 <User size={14} style={{ color: NAVY }} />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Name</p>
-                <p className="text-sm font-semibold text-slate-800 truncate">{displayName}</p>
+                {isEditing ? (
+                  <input
+                    value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    className="w-full text-sm font-semibold text-slate-800 bg-transparent border-b border-slate-300 focus:border-slate-500 outline-none py-0.5 transition-colors"
+                    placeholder="Display name"
+                  />
+                ) : (
+                  <p className="text-sm font-semibold text-slate-800 truncate">{displayName}</p>
+                )}
               </div>
             </div>
 
@@ -315,13 +395,47 @@ const SettingsPanel = ({ onClose, onToast }) => {
               <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: TEAL_LIGHT }}>
                 <Mail size={14} style={{ color: NAVY }} />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Email</p>
-                <p className="text-sm font-semibold text-slate-800 truncate">{user?.email || '—'}</p>
+                {isEditing ? (
+                  <input
+                    value={editEmail}
+                    onChange={e => setEditEmail(e.target.value)}
+                    className="w-full text-sm font-semibold text-slate-800 bg-transparent border-b border-slate-300 focus:border-slate-500 outline-none py-0.5 transition-colors"
+                    placeholder="Email address"
+                    type="email"
+                  />
+                ) : (
+                  <p className="text-sm font-semibold text-slate-800 truncate">{user?.email || '—'}</p>
+                )}
               </div>
             </div>
 
-            {/* Permissions — opens sub-panel */}
+            {/* Re-auth field — only when email is being changed */}
+            {isEditing && emailChanged && (
+              <div className="flex items-center gap-3 p-3.5 rounded-xl bg-amber-50 border border-amber-100">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-amber-100">
+                  <Lock size={14} className="text-amber-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Confirm Current Password</p>
+                  <div className="relative">
+                    <input
+                      type={showEditPw ? 'text' : 'password'}
+                      value={editPw}
+                      onChange={e => setEditPw(e.target.value)}
+                      className="w-full text-sm font-semibold text-slate-800 bg-transparent border-b border-amber-300 focus:border-amber-500 outline-none py-0.5 transition-colors pr-6"
+                      placeholder="Required to change email"
+                    />
+                    <button type="button" onClick={() => setShowEditPw(v => !v)} className="absolute right-0 top-1/2 -translate-y-1/2 text-amber-400 hover:text-amber-600 transition-colors">
+                      {showEditPw ? <EyeOff size={12} /> : <Eye size={12} />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Permissions — opens sub-panel (not editable) */}
             <button
               onClick={() => setShowPermissions(true)}
               className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-100 hover:border-slate-300 transition-colors text-left group"
@@ -348,8 +462,8 @@ const SettingsPanel = ({ onClose, onToast }) => {
             <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider">Change Password</p>
           </div>
           <div className="space-y-3">
-            <PwInput label="Current Password" value={currentPw} onChange={setCurrentPw} show={showCur} onToggle={() => setShowCur(v => !v)} />
-            <PwInput label="New Password"     value={newPw}     onChange={setNewPw}     show={showNew} onToggle={() => setShowNew(v => !v)} />
+            <PwInput label="Current Password"     value={currentPw} onChange={setCurrentPw} show={showCur}  onToggle={() => setShowCur(v => !v)} />
+            <PwInput label="New Password"         value={newPw}     onChange={setNewPw}     show={showNew}  onToggle={() => setShowNew(v => !v)} />
             <PwInput label="Confirm New Password" value={confirmPw} onChange={setConfirmPw} show={showConf} onToggle={() => setShowConf(v => !v)} />
             <button
               onClick={handleChangePassword}
@@ -388,9 +502,16 @@ const AdminPortal = () => {
   const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) navigate('/login');
-      else setAuthChecked(true);
+  const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        navigate('/login');
+      } else {
+        setAuthChecked(true);
+        // All axios requests will carry the logged-in user's name
+        // so the backend can log who performed each action
+        axios.defaults.headers.common['X-Performed-By'] =
+        user.displayName || user.email?.split('@')[0] || 'Admin';
+      }
     });
     return () => unsubscribe();
   }, [navigate]);
@@ -683,12 +804,13 @@ const AdminPortal = () => {
       {/* ── Applicant Detail slide-over ──────────────────────────────────────── */}
       <div className={`fixed inset-y-0 right-0 w-full md:w-[500px] bg-white shadow-2xl z-[100] transform transition-transform duration-500 ease-in-out border-l border-slate-100 ${selectedApplicantId ? 'translate-x-0' : 'translate-x-full'}`}>
         {selectedApplicantId && (
-          <ApplicantDetail
-            applicantId={selectedApplicantId}
-            flagMap={flagMap}
-            onClose={() => setSelectedApplicantId(null)}
-            onRefresh={refresh}
-          />
+        <ApplicantDetail
+          applicantId={selectedApplicantId}
+          jobs={jobs}
+          onClose={() => setSelectedApplicantId(null)}
+          onRefresh={refresh}
+          flagMap={flagMap}
+        />
         )}
       </div>
       {selectedApplicantId && (

@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
 
 from app.firebase_client import get_db, doc_to_dict
@@ -91,7 +91,7 @@ def get_applicant(applicant_id: str):
 
 
 @router.put("/applicants/{applicant_id}", response_model=UserResponse)
-def update_applicant(applicant_id: str, applicant_data: UserUpdate):
+def update_applicant(applicant_id: str, applicant_data: UserUpdate, request: Request):
     db  = get_db()
     ref = db.collection("applicants").document(applicant_id)
     if not ref.get().exists:
@@ -103,12 +103,13 @@ def update_applicant(applicant_id: str, applicant_data: UserUpdate):
         action="applicant_updated", entity_type="applicant",
         entity_id=applicant_id,   entity_name=_applicant_name(data),
         details=f"Profile updated. Fields: {', '.join(payload.keys())}",
+        performed_by=request.headers.get("X-Performed-By", "System"),
     )
     return data
 
 
 @router.patch("/applicants/{applicant_id}", response_model=UserResponse)
-def update_applicant_status(applicant_id: str, status_data: StatusUpdate):
+def update_applicant_status(applicant_id: str, status_data: StatusUpdate, request: Request):
     db  = get_db()
     ref = db.collection("applicants").document(applicant_id)
     doc = ref.get()
@@ -121,30 +122,37 @@ def update_applicant_status(applicant_id: str, status_data: StatusUpdate):
         action="status_changed", entity_type="applicant",
         entity_id=applicant_id,  entity_name=_applicant_name(data),
         details=f"Stage moved: '{prev}' → '{status_data.hiring_status}'",
+        performed_by=request.headers.get("X-Performed-By", "System"),
     )
     return data
 
 
 @router.patch("/applicants/{applicant_id}/notes")
-def save_recruiter_notes(applicant_id: str, payload: dict):
+def save_recruiter_notes(applicant_id: str, payload: dict, request: Request):
     db  = get_db()
     ref = db.collection("applicants").document(applicant_id)
     doc = ref.get()
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Applicant not found")
-    notes = payload.get("recruiter_notes", "")
-    ref.update({"recruiter_notes": notes})
+    update_fields = {}
+    if "recruiter_notes" in payload:
+        update_fields["recruiter_notes"] = payload["recruiter_notes"]
+    if "endorsed_position" in payload:
+        update_fields["endorsed_position"] = payload["endorsed_position"]
+    if update_fields:
+        ref.update(update_fields)
     data = doc_to_dict(ref.get())
     write_log(
         action="notes_updated", entity_type="applicant",
         entity_id=applicant_id, entity_name=_applicant_name(data),
         details="Recruiter notes updated.",
+        performed_by=request.headers.get("X-Performed-By", "System"),
     )
-    return {"ok": True, "recruiter_notes": notes}
+    return {"ok": True, **update_fields}
 
 
 @router.delete("/applicants/{applicant_id}")
-def delete_applicant(applicant_id: str):
+def delete_applicant(applicant_id: str, request: Request):
     db  = get_db()
     ref = db.collection("applicants").document(applicant_id)
     doc = ref.get()
@@ -161,6 +169,7 @@ def delete_applicant(applicant_id: str):
         action="applicant_deleted", entity_type="applicant",
         entity_id=applicant_id,    entity_name=name,
         details=f"'{name}' permanently deleted including resume and status history.",
+        performed_by=request.headers.get("X-Performed-By", "System"),
     )
     return {"message": f"Applicant {applicant_id} deleted successfully"}
 
@@ -389,7 +398,7 @@ def get_job(job_id: str):
 
 
 @router.post("/jobs", response_model=JobResponse)
-def create_job(job_data: JobCreate):
+def create_job(job_data: JobCreate, request: Request):
     db = get_db()
     payload = {**job_data.model_dump(), "created_at": datetime.now(timezone.utc).isoformat()}
     _, ref        = db.collection("jobs").add(payload)
@@ -398,12 +407,13 @@ def create_job(job_data: JobCreate):
         action="job_created", entity_type="job",
         entity_id=ref.id,    entity_name=job_data.title,
         details=f"Job '{job_data.title}' created in {job_data.department or '—'}, status '{job_data.status}'.",
+        performed_by=request.headers.get("X-Performed-By", "System"),
     )
     return payload
 
 
 @router.put("/jobs/{job_id}", response_model=JobResponse)
-def update_job(job_id: str, job_data: JobUpdate):
+def update_job(job_id: str, job_data: JobUpdate, request: Request):
     db  = get_db()
     ref = db.collection("jobs").document(job_id)
     if not ref.get().exists:
@@ -415,12 +425,13 @@ def update_job(job_id: str, job_data: JobUpdate):
         action="job_updated", entity_type="job",
         entity_id=job_id,    entity_name=updated.get("title", job_id),
         details=f"Job updated. Fields: {', '.join(payload.keys())}",
+        performed_by=request.headers.get("X-Performed-By", "System"),
     )
     return updated
 
 
 @router.delete("/jobs/{job_id}")
-def delete_job(job_id: str):
+def delete_job(job_id: str, request: Request):
     db  = get_db()
     ref = db.collection("jobs").document(job_id)
     doc = ref.get()
@@ -432,6 +443,7 @@ def delete_job(job_id: str):
         action="job_deleted", entity_type="job",
         entity_id=job_id,    entity_name=title,
         details=f"Job posting '{title}' permanently deleted.",
+        performed_by=request.headers.get("X-Performed-By", "System"),
     )
     return {"message": f"Job {job_id} deleted successfully"}
 
@@ -448,7 +460,7 @@ def get_all_employees():
 
 
 @router.post("/employees")
-def create_employee(emp_data: dict):
+def create_employee(emp_data: dict, request: Request):
     db = get_db()
     payload = {
         "name": emp_data.get("name", ""), "role": emp_data.get("role", ""),
@@ -461,6 +473,7 @@ def create_employee(emp_data: dict):
         action="employee_added", entity_type="employee",
         entity_id=ref.id,       entity_name=payload["name"],
         details=f"Employee '{payload['name']}' added as {payload['role']}.",
+        performed_by=request.headers.get("X-Performed-By", "System"),
     )
     return payload
 

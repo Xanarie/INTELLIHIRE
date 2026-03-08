@@ -37,9 +37,11 @@ function getExperienceLabel(resumeScoreJson) {
 }
 
 function getMatchColor(bucket) {
-  if (bucket === "Highly Qualified") return "text-emerald-600";
-  if (bucket === "Qualified")        return "text-blue-600";
-  if (bucket === "Needs Review")     return "text-amber-600";
+  if (bucket === "Highly Qualified")     return "text-emerald-600";
+  if (bucket === "Moderately Qualified") return "text-teal-600";
+  if (bucket === "Qualified")            return "text-blue-600";
+  if (bucket === "For Review")           return "text-amber-600";
+  if (bucket === "Needs Review")         return "text-amber-600"; // legacy
   return "text-rose-500";
 }
 
@@ -51,12 +53,13 @@ function getResumeColor(bucket) {
 }
 
 function getBucketBadge(bucket) {
-  if (bucket === "Highly Qualified") return "bg-emerald-50 text-emerald-700 border-emerald-200";
-  if (bucket === "Qualified")        return "bg-blue-50 text-blue-700 border-blue-200";
-  if (bucket === "Needs Review")     return "bg-amber-50 text-amber-700 border-amber-200";
+  if (bucket === "Highly Qualified")     return "bg-emerald-50 text-emerald-700 border-emerald-200";
+  if (bucket === "Moderately Qualified") return "bg-teal-50 text-teal-700 border-teal-200";
+  if (bucket === "Qualified")            return "bg-blue-50 text-blue-700 border-blue-200";
+  if (bucket === "For Review")           return "bg-amber-50 text-amber-700 border-amber-200";
+  if (bucket === "Needs Review")         return "bg-amber-50 text-amber-700 border-amber-200"; // legacy
   return "bg-rose-50 text-rose-600 border-rose-200";
 }
-
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 const DetailItem = ({ label, value, icon }) => (
@@ -203,10 +206,10 @@ const BreakdownModal = ({ applicant, onClose }) => {
                 Resume Quality — {Math.round(applicant.ai_resume_score ?? 0)}/100
               </p>
               <div className="space-y-2.5">
-                <Bar label="Writing Quality"    value={resume.breakdown?.writing_quality}    color={TEAL} />
-                <Bar label="Structure"          value={resume.breakdown?.structure}          color={TEAL} />
-                <Bar label="Experience Signals" value={resume.breakdown?.experience_signals} max={30} color={TEAL} />
-                <Bar label="Skills Density"     value={resume.breakdown?.skills_density}     color={TEAL} />
+                <Bar label="Structure"            value={resume.breakdown?.structure}          max={30} color={TEAL} />
+                <Bar label="Experience Signals"   value={resume.breakdown?.experience_signals} max={30} color={TEAL} />
+                <Bar label="Impact & Achievement" value={resume.breakdown?.impact_signals}     max={25} color={TEAL} />
+                <Bar label="Writing Clarity"      value={resume.breakdown?.clarity}            max={15} color={TEAL} />
               </div>
             </div>
           )}
@@ -328,16 +331,17 @@ const AIMatchInsights = ({ applicant, topRole }) => {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-const ApplicantDetail = ({ applicantId, onClose, onRefresh, flagMap = new Map() }) => {
-  const [applicant,      setApplicant]      = useState(null);
-  const [loading,        setLoading]        = useState(true);
-  const [saving,         setSaving]         = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState("");
-  const [rerunning,      setRerunning]      = useState(false);
-  const [topRole,        setTopRole]        = useState(null);
-  const [recruiterNotes, setRecruiterNotes] = useState("");
-  const [savingNotes,    setSavingNotes]    = useState(false);
-  const [notesSaved,     setNotesSaved]     = useState(false);
+  const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap = new Map() }) => {
+    const [applicant,         setApplicant]         = useState(null);
+    const [loading,           setLoading]           = useState(true);
+    const [saving,            setSaving]            = useState(false);
+    const [selectedStatus,    setSelectedStatus]    = useState("");
+    const [rerunning,         setRerunning]         = useState(false);
+    const [topRole,           setTopRole]           = useState(null);
+    const [recruiterNotes,    setRecruiterNotes]    = useState("");
+    const [endorsedPosition,  setEndorsedPosition]  = useState("");
+    const [savingNotes,       setSavingNotes]       = useState(false);
+    const [notesSaved,        setNotesSaved]        = useState(false);
 
   const fetchApplicant = async () => {
     if (!applicantId) return;
@@ -347,6 +351,7 @@ const ApplicantDetail = ({ applicantId, onClose, onRefresh, flagMap = new Map() 
       setApplicant(res.data);
       setSelectedStatus(res.data.hiring_status || "Pre-screening");
       setRecruiterNotes(res.data.recruiter_notes || "");
+      setEndorsedPosition(res.data.endorsed_position || "");
       const rec = res.data.ai_recommended_role;
       if (rec) {
         setTopRole({ title: rec, score: null, bucket: null });
@@ -367,7 +372,10 @@ const ApplicantDetail = ({ applicantId, onClose, onRefresh, flagMap = new Map() 
   const handleSaveNotes = async () => {
     try {
       setSavingNotes(true); setNotesSaved(false);
-      await axios.patch(`${API_BASE_URL}/applicants/${applicantId}/notes`, { recruiter_notes: recruiterNotes });
+      await axios.patch(`${API_BASE_URL}/applicants/${applicantId}/notes`, {
+        recruiter_notes:   recruiterNotes,
+        endorsed_position: endorsedPosition,
+      });
       setNotesSaved(true);
       setTimeout(() => setNotesSaved(false), 2500);
     } catch (err) { console.error(err); }
@@ -552,6 +560,40 @@ const ApplicantDetail = ({ applicantId, onClose, onRefresh, flagMap = new Map() 
               </>
             ) : notesSaved ? "✓ Notes Saved" : "Save Notes"}
           </button>
+        {/* Final Endorsed Position */}
+          <div className="space-y-3 pt-2">
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              Final Endorsed Position
+            </h3>
+            <Select
+              value={endorsedPosition || "__none__"}
+              onValueChange={v => setEndorsedPosition(v === "__none__" ? "" : v)}
+            >
+              <SelectTrigger
+                className="w-full h-12 border-2 border-slate-100 bg-slate-50 font-bold"
+                style={{ color: NAVY }}
+              >
+                <SelectValue placeholder="Select active position…" />
+              </SelectTrigger>
+              <SelectContent
+                className="bg-white border border-slate-200 rounded-xl shadow-xl z-[200]"
+                position="popper"
+                sideOffset={5}
+              >
+                <SelectItem value="__none__">— None —</SelectItem>
+                {jobs
+                  .filter(j => j.status === 'Open')
+                  .map(j => (
+                    <SelectItem key={j.id} value={j.title}>{j.title}</SelectItem>
+                  ))
+                }
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-slate-400 italic">
+              Saved together with recruiter notes.
+            </p>
+          </div>
+
         </div>
 
       </CardContent>

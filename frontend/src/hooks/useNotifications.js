@@ -1,17 +1,11 @@
 // frontend/src/hooks/useNotifications.js
 import { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  ref, push, onValue, off, get, set, serverTimestamp,
-} from 'firebase/database';
+import { onAuthStateChanged } from 'firebase/auth';
+import { ref, push, onValue, off, get, set } from 'firebase/database';
 import { db, auth } from '../firebaseConfig';
 
 /**
- * Writes a single notification to Firebase RTDB.
- * Call this from any action handler after a successful operation.
- *
- * @param {string} message  - Human-readable description, e.g. "moved John Doe to Interview"
- * @param {string} tab      - AdminHub tab id to navigate to, e.g. "recruitment"
- * @param {string} [entityId] - Optional applicant/job id for deep-linking
+ * Writes a notification to Firebase RTDB.
  */
 export async function pushNotification(message, tab, entityId = null) {
   const user = auth.currentUser;
@@ -31,44 +25,52 @@ export async function pushNotification(message, tab, entityId = null) {
   }
 }
 
-/**
- * Main notifications hook.
- * Returns { notifications, unreadCount, popupQueue, markAllRead, dismissPopup }
- */
 export function useNotifications() {
-  const currentUid = auth.currentUser?.uid;
+  // ── Reactive auth — fixes the race where auth.currentUser is null on first render ──
+  const [currentUid, setCurrentUid] = useState(() => auth.currentUser?.uid ?? null);
 
-  const [notifications, setNotifications] = useState([]);  // full list (newest first)
-  const [lastReadAt,    setLastReadAt]    = useState(null); // timestamp of last "mark read"
-  const [popupQueue,    setPopupQueue]    = useState([]);   // items currently showing as toast
+  useEffect(() => {
+    // onAuthStateChanged returns unsubscribe — use as cleanup directly
+    return onAuthStateChanged(auth, user => {
+      setCurrentUid(user?.uid ?? null);
+    });
+  }, []);
 
-  const lastReadAtRef    = useRef(null);
-  const isMountedRef     = useRef(true);
-  const seenIdsRef       = useRef(new Set());               // prevent re-popping on re-subscribe
+  const [notifications, setNotifications] = useState([]);
+  const [lastReadAt,    setLastReadAt]    = useState(null);
+  const [popupQueue,    setPopupQueue]    = useState([]);
 
-  // ── Load lastReadAt for this user ───────────────────────────────────────────
+  const lastReadAtRef = useRef(null);
+  const seenIdsRef    = useRef(new Set());
+
+  // ── Load lastReadAt for this user ──────────────────────────────────────────
   useEffect(() => {
     if (!currentUid) return;
-    const userRef = ref(db, `userActivity/${currentUid}/lastReadAt`);
-    get(userRef).then(snap => {
-      const val = snap.val() || 0;
-      if (isMountedRef.current) {
+    let mounted = true;
+    get(ref(db, `userActivity/${currentUid}/lastReadAt`))
+      .then(snap => {
+        if (!mounted) return;
+        const val = snap.val() ?? 0;
         setLastReadAt(val);
         lastReadAtRef.current = val;
-      }
-    }).catch(() => {});
-
-    return () => { isMountedRef.current = false; };
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setLastReadAt(0);
+        lastReadAtRef.current = 0;
+      });
+    return () => { mounted = false; };
   }, [currentUid]);
 
-  // ── Subscribe to /notifications ────────────────────────────────────────────
+  // ── Subscribe to /notifications once auth + lastReadAt are ready ──────────
   useEffect(() => {
     if (!currentUid || lastReadAt === null) return;
 
     const notifRef = ref(db, 'notifications');
+    let mounted = true;
 
     const handler = (snap) => {
-      if (!isMountedRef.current) return;
+      if (!mounted) return;
       const raw = snap.val() || {};
       const all = Object.entries(raw)
         .map(([id, data]) => ({ id, ...data }))
@@ -76,9 +78,7 @@ export function useNotifications() {
 
       setNotifications(all);
 
-      // Show popups for NEW notifications from OTHER users that arrived
-      // after we mounted (i.e., their timestamp > lastReadAtRef.current and
-      // they're not in our seenIds set, and they're not ours)
+      // Only pop for notifications from OTHER users that arrived after lastReadAt
       all.forEach(n => {
         if (
           n.actorUid !== currentUid &&
@@ -92,10 +92,13 @@ export function useNotifications() {
     };
 
     onValue(notifRef, handler);
-    return () => off(notifRef, 'value', handler);
+    return () => {
+      mounted = false;
+      off(notifRef, 'value', handler);
+    };
   }, [currentUid, lastReadAt]);
 
-  // ── Mark all as read ────────────────────────────────────────────────────────
+  // ── Mark all as read ───────────────────────────────────────────────────────
   const markAllRead = useCallback(async () => {
     if (!currentUid) return;
     const now = Date.now();
@@ -108,12 +111,10 @@ export function useNotifications() {
     }
   }, [currentUid]);
 
-  // ── Dismiss a single popup toast ────────────────────────────────────────────
   const dismissPopup = useCallback((id) => {
     setPopupQueue(prev => prev.filter(n => n.id !== id));
   }, []);
 
-  // ── Derived unread count (from others, after lastReadAt) ────────────────────
   const unreadCount = notifications.filter(
     n => n.actorUid !== currentUid && n.timestamp > (lastReadAt || 0)
   ).length;

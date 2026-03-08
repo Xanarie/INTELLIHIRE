@@ -1,30 +1,29 @@
+// frontend/src/components/admin/ActivityLog.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
   RefreshCw, Trash2, User, Briefcase, Users,
-  Cpu, Filter, ChevronDown, ArchiveRestore,
+  Cpu, Filter, ChevronDown, RotateCcw,
 } from 'lucide-react';
 
 const API_BASE = 'http://localhost:8000/api/admin';
 
-// ── Brand colours ─────────────────────────────────────────────────────────────
-const NAVY = '#1A3C6E';
-const TEAL = '#00AECC';
+const NAVY       = '#1A3C6E';
+const TEAL       = '#00AECC';
 const TEAL_LIGHT = '#E6F7FB';
 
-// ── Action metadata ───────────────────────────────────────────────────────────
 const ACTION_META = {
-  status_changed:     { label: 'Stage Changed',      color: 'bg-blue-50 text-blue-700 border-blue-100'           },
-  applicant_updated:  { label: 'Profile Updated',    color: 'bg-slate-50 text-slate-600 border-slate-200'        },
-  applicant_deleted:  { label: 'Applicant Deleted',  color: 'bg-rose-50 text-rose-600 border-rose-100'           },
-  notes_updated:      { label: 'Notes Updated',      color: 'bg-amber-50 text-amber-700 border-amber-100'        },
-  resume_viewed:      { label: 'Resume Viewed',      color: 'bg-purple-50 text-purple-600 border-purple-100'     },
-  prescreen_rerun:    { label: 'AI Prescreen Rerun', color: 'bg-[#E6F7FB] text-[#1A3C6E] border-[#b3e6f5]'      },
-  job_created:        { label: 'Job Created',        color: 'bg-emerald-50 text-emerald-700 border-emerald-100'  },
-  job_updated:        { label: 'Job Updated',        color: 'bg-slate-50 text-slate-600 border-slate-200'        },
-  job_deleted:        { label: 'Job Deleted',        color: 'bg-rose-50 text-rose-600 border-rose-100'           },
-  employee_added:     { label: 'Employee Added',     color: 'bg-emerald-50 text-emerald-700 border-emerald-100'  },
-  archived:           { label: 'Archived',           color: 'bg-violet-50 text-violet-700 border-violet-100'     },
+  status_changed:     { label: 'Stage Changed',      color: 'bg-blue-50 text-blue-700 border-blue-100'      },
+  applicant_updated:  { label: 'Profile Updated',    color: 'bg-slate-50 text-slate-600 border-slate-200'   },
+  applicant_deleted:  { label: 'Applicant Deleted',  color: 'bg-rose-50 text-rose-600 border-rose-100'      },
+  notes_updated:      { label: 'Notes Updated',      color: 'bg-amber-50 text-amber-700 border-amber-100'   },
+  resume_viewed:      { label: 'Resume Viewed',      color: 'bg-purple-50 text-purple-600 border-purple-100'},
+  prescreen_rerun:    { label: 'AI Prescreen Rerun', color: 'bg-[#E6F7FB] text-[#1A3C6E] border-[#b3e6f5]' },
+  job_created:        { label: 'Job Created',        color: 'bg-emerald-50 text-emerald-700 border-emerald-100'},
+  job_updated:        { label: 'Job Updated',        color: 'bg-slate-50 text-slate-600 border-slate-200'   },
+  job_deleted:        { label: 'Job Deleted',        color: 'bg-rose-50 text-rose-600 border-rose-100'      },
+  employee_added:     { label: 'Employee Added',     color: 'bg-emerald-50 text-emerald-700 border-emerald-100'},
+  archived:           { label: 'Archived',           color: 'bg-slate-100 text-slate-600 border-slate-200'  },
 };
 
 const ENTITY_ICONS = {
@@ -72,26 +71,39 @@ function timeAgo(iso) {
   if (mins < 60)  return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24)   return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  return `${days}d ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+/**
+ * Parses the previous hiring stage from a log details string.
+ * e.g. "Stage moved: 'Accepted' → 'Archived'" → "Accepted"
+ */
+function parsePrevStatus(details) {
+  const m = (details || '').match(/Stage moved: '(.+?)'\s*→/);
+  return m?.[1] ?? 'Accepted';
 }
 
 // ── Log Row ───────────────────────────────────────────────────────────────────
 
-const LogRow = ({ log, onUnarchive }) => {
+const LogRow = ({ log, onRefresh }) => {
   const meta       = ACTION_META[log.action] || { label: log.action, color: 'bg-slate-50 text-slate-500 border-slate-200' };
   const entityIcon = ENTITY_ICONS[log.entity_type] || <Cpu size={14} />;
-
-  const isArchived = log.action === 'archived' && log.entity_type === 'applicant' && log.entity_id;
-
   const [unarchiving, setUnarchiving] = useState(false);
+
+  // Show unarchive button when a status_changed log moved an applicant TO Archived
+  const isArchivedLog =
+    log.action === 'status_changed' &&
+    log.entity_type === 'applicant' &&
+    !!log.entity_id &&
+    (log.details || '').includes("→ 'Archived'");
 
   const handleUnarchive = async () => {
     if (!log.entity_id) return;
+    const prevStatus = parsePrevStatus(log.details);
     try {
       setUnarchiving(true);
-      await axios.patch(`${API_BASE}/applicants/${log.entity_id}`, { hiring_status: 'Accepted' });
-      if (onUnarchive) onUnarchive(log.entity_id);
+      await axios.patch(`${API_BASE}/applicants/${log.entity_id}`, { hiring_status: prevStatus });
+      onRefresh?.();
     } catch (err) {
       console.error('Unarchive failed:', err);
     } finally {
@@ -100,7 +112,7 @@ const LogRow = ({ log, onUnarchive }) => {
   };
 
   return (
-    <div className="flex items-start gap-4 px-6 py-4 border-b border-slate-100 hover:bg-slate-50/60 transition-colors group">
+    <div className="flex items-start gap-4 px-6 py-4 border-b border-slate-100 hover:bg-slate-50/60 transition-colors">
 
       {/* Entity type icon */}
       <div
@@ -122,26 +134,32 @@ const LogRow = ({ log, onUnarchive }) => {
             </span>
           )}
         </div>
+
+        {/* Details */}
         <p className="text-xs text-slate-500 mt-1 leading-relaxed">{log.details}</p>
-      </div>
 
-      {/* Right: timestamp + optional Unarchive button */}
-      <div className="flex flex-col items-end gap-2 shrink-0">
-        <div className="text-right">
-          <p className="text-xs font-semibold text-slate-500">{timeAgo(log.timestamp)}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">{formatTimestamp(log.timestamp)}</p>
-        </div>
+        {/* Who made the change */}
+        {log.performed_by && log.performed_by !== 'System' && (
+          <p className="text-[10px] text-slate-400 mt-0.5 font-medium">by {log.performed_by}</p>
+        )}
 
-        {isArchived && (
+        {/* Unarchive button — restores to previous stage parsed from log details */}
+        {isArchivedLog && (
           <button
             onClick={handleUnarchive}
             disabled={unarchiving}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold text-violet-600 bg-violet-50 border border-violet-100 hover:bg-violet-100 transition-all disabled:opacity-50"
+            className="mt-2 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors disabled:opacity-50"
           >
-            <ArchiveRestore size={12} />
-            {unarchiving ? 'Restoring…' : 'Unarchive'}
+            <RotateCcw size={10} className={unarchiving ? 'animate-spin' : ''} />
+            {unarchiving ? 'Restoring…' : `Unarchive → ${parsePrevStatus(log.details)}`}
           </button>
         )}
+      </div>
+
+      {/* Timestamp */}
+      <div className="text-right shrink-0">
+        <p className="text-xs font-semibold text-slate-500">{timeAgo(log.timestamp)}</p>
+        <p className="text-[10px] text-slate-400 mt-0.5">{formatTimestamp(log.timestamp)}</p>
       </div>
 
     </div>
@@ -221,15 +239,11 @@ const ActivityLog = () => {
     }
   };
 
-  // Called from LogRow after successful unarchive — refresh logs + optionally update badge
-  const handleUnarchive = useCallback(() => {
-    fetchLogs();
-  }, [fetchLogs]);
-
-  // Group logs by date
   const grouped = logs.reduce((acc, log) => {
     const date = log.timestamp
-      ? new Date(log.timestamp).toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+      ? new Date(log.timestamp).toLocaleDateString('en-PH', {
+          weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+        })
       : 'Unknown Date';
     if (!acc[date]) acc[date] = [];
     acc[date].push(log);
@@ -239,7 +253,7 @@ const ActivityLog = () => {
   return (
     <div className="space-y-5 animate-in fade-in duration-300">
 
-      {/* Header row */}
+      {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div>
           <h2 className="text-base font-black text-slate-800">Activity Logs</h2>
@@ -286,7 +300,9 @@ const ActivityLog = () => {
             </div>
             <p className="text-sm font-semibold text-slate-600">No activity logs found</p>
             <p className="text-xs text-slate-400 mt-1">
-              {entityFilter || actionFilter ? 'Try adjusting the filters above.' : 'Actions will appear here as the system is used.'}
+              {entityFilter || actionFilter
+                ? 'Try adjusting the filters above.'
+                : 'Actions will appear here as the system is used.'}
             </p>
           </div>
         ) : (
@@ -296,7 +312,7 @@ const ActivityLog = () => {
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{date}</p>
               </div>
               {entries.map(log => (
-                <LogRow key={log.id} log={log} onUnarchive={handleUnarchive} />
+                <LogRow key={log.id} log={log} onRefresh={fetchLogs} />
               ))}
             </div>
           ))

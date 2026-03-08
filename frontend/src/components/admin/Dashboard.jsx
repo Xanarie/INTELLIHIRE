@@ -13,22 +13,34 @@ const AMBER  = '#F59E0B';
 const ROSE   = '#F43F5E';
 const VIOLET = '#7C3AED';
 const SLATE  = '#64748B';
+const TEAL   = '#00AECC';
 
-const STAGE_ORDER = ['Pre-screening','Screening','Interview','Offer','Hired','Rejected'];
+// Pipeline stages — "Accepted" replaces old "Hired"
+const STAGE_ORDER  = ['Pre-screening', 'Screening', 'Interview', 'Offer', 'Accepted', 'Rejected'];
 const STAGE_COLORS = {
   'Pre-screening': SLATE,
   'Screening':     BLUE,
   'Interview':     VIOLET,
   'Offer':         AMBER,
-  'Hired':         GREEN,
+  'Accepted':      GREEN,
   'Rejected':      ROSE,
 };
+
+// AI resume quality — updated to 5-tier names
+const BUCKET_ORDER  = ['Highly Qualified', 'Moderately Qualified', 'Qualified', 'For Review', 'Not Qualified'];
 const BUCKET_COLORS = {
+  'Highly Qualified':     GREEN,
+  'Moderately Qualified': TEAL,
+  'Qualified':            BLUE,
+  'For Review':           AMBER,
+  'Not Qualified':        ROSE,
+  // Legacy names — kept so old Firebase records still render
   'Strong':       GREEN,
-  'Good':         BLUE,
+  'Good':         TEAL,
   'Needs Review': AMBER,
   'Weak':         ROSE,
 };
+
 const SOURCE_PALETTE = [BLUE, GREEN, VIOLET, AMBER, ROSE, SLATE, '#06B6D4', '#EC4899'];
 
 // ── Panel wrapper ─────────────────────────────────────────────────────────────
@@ -64,7 +76,7 @@ const VerticalBarChart = ({ data, colorKey }) => {
     <div className="flex items-end gap-2 h-44 pt-2">
       {data.map((d, i) => {
         const pct   = Math.round((d.count / max) * 100);
-        const color = colorKey ? colorKey[d.stage] : BLUE;
+        const color = colorKey?.[d.stage] ?? BLUE;
         const isHov = hovered === i;
         return (
           <div
@@ -73,18 +85,12 @@ const VerticalBarChart = ({ data, colorKey }) => {
             onMouseEnter={() => setHovered(i)}
             onMouseLeave={() => setHovered(null)}
           >
-            {/* Count tooltip */}
             <div
               className="text-[10px] font-black px-2 py-0.5 rounded-lg transition-opacity duration-150"
-              style={{
-                color,
-                background: `${color}15`,
-                opacity: isHov ? 1 : 0,
-              }}
+              style={{ color, background: `${color}15`, opacity: isHov ? 1 : 0 }}
             >
               {d.count}
             </div>
-            {/* Bar */}
             <div className="w-full flex items-end" style={{ height: 108 }}>
               <div
                 className="w-full rounded-t-lg transition-all duration-500"
@@ -95,7 +101,6 @@ const VerticalBarChart = ({ data, colorKey }) => {
                 }}
               />
             </div>
-            {/* Label */}
             <p className="text-[8px] font-bold text-slate-400 text-center leading-tight truncate w-full px-0.5">
               {d.stage}
             </p>
@@ -142,11 +147,9 @@ const DonutChart = ({ data, size = 130 }) => {
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ overflow: 'visible', flexShrink: 0 }}>
       {slices.map(s => (
         <path
-          key={s.key}
-          d={s.path}
-          fill={s.fill}
+          key={s.key} d={s.path} fill={s.fill}
           opacity={hovered === null || hovered === s.key ? 0.9 : 0.4}
-          style={{ cursor: 'default', transition: 'opacity 0.2s, d 0.2s' }}
+          style={{ cursor: 'default', transition: 'opacity 0.2s' }}
           onMouseEnter={() => setHovered(s.key)}
           onMouseLeave={() => setHovered(null)}
         />
@@ -179,12 +182,13 @@ const HorizontalBar = ({ label, count, max, color = BLUE }) => {
 const DashboardTab = ({ applicants = [], jobs = [] }) => {
 
   const stats = useMemo(() => {
-    const total       = applicants.length;
-    const hired       = applicants.filter(a => (a.hiring_status || '').toLowerCase() === 'hired').length;
+    const total = applicants.length;
+    // Onboarded = fully completed onboarding (archived status)
+    const onboarded  = applicants.filter(a => (a.hiring_status || '').toLowerCase() === 'archived').length;
     const prescreened = applicants.filter(a => a.ai_resume_score != null).length;
     const openJobs    = jobs.filter(j => j.status === 'Open').length;
-    const passRate    = total > 0 ? Math.round((hired / total) * 100) : 0;
-    return { total, hired, prescreened, openJobs, passRate };
+    const hireRate    = total > 0 ? Math.round((onboarded / total) * 100) : 0;
+    return { total, onboarded, prescreened, openJobs, hireRate };
   }, [applicants, jobs]);
 
   const pipelineData = useMemo(() => {
@@ -222,11 +226,20 @@ const DashboardTab = ({ applicants = [], jobs = [] }) => {
 
   const maxPosition = positionData[0]?.count || 1;
 
+  // AI Resume Quality — bucket grouping handles both new 5-tier and legacy names
   const bucketData = useMemo(() => {
-    const counts = { Strong: 0, Good: 0, 'Needs Review': 0, Weak: 0 };
+    const counts = {
+      'Highly Qualified': 0, 'Moderately Qualified': 0,
+      'Qualified': 0, 'For Review': 0, 'Not Qualified': 0,
+    };
     applicants.forEach(a => {
       const b = a.ai_resume_bucket;
-      if (b && b in counts) counts[b]++;
+      if (!b) return;
+      if (b === 'Strong')                               counts['Highly Qualified']++;
+      else if (b === 'Good')                            counts['Moderately Qualified']++;
+      else if (b === 'Needs Review')                    counts['For Review']++;
+      else if (b === 'Weak')                            counts['Not Qualified']++;
+      else if (b in counts)                             counts[b]++;
     });
     return counts;
   }, [applicants]);
@@ -259,12 +272,12 @@ const DashboardTab = ({ applicants = [], jobs = [] }) => {
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard label="Total Applicants"  value={stats.total}
+        <StatCard label="Total Applicants" value={stats.total}
           sub="All time" color={BLUE} icon={Users} />
         <StatCard label="Open Positions" value={stats.openJobs}
           sub={`${jobs.length} total jobs`} color={GREEN} icon={Briefcase} />
-        <StatCard label="Hired" value={stats.hired}
-          sub={`${stats.passRate}% pass-through rate`} color={AMBER} icon={CheckCircle2} />
+        <StatCard label="Onboarded" value={stats.onboarded}
+          sub={`${stats.hireRate}% hire rate`} color={AMBER} icon={CheckCircle2} />
         <StatCard label="AI Prescreened" value={stats.prescreened}
           sub={`${stats.total > 0 ? Math.round((stats.prescreened / stats.total) * 100) : 0}% of applicants`}
           color={VIOLET} icon={Sparkles} />
@@ -321,7 +334,7 @@ const DashboardTab = ({ applicants = [], jobs = [] }) => {
             ? <p className="text-xs text-slate-400 text-center py-8">Run prescreen on applicants to see quality data</p>
             : (
               <div className="space-y-3 py-1">
-                {['Strong', 'Good', 'Needs Review', 'Weak'].map(bucket => {
+                {BUCKET_ORDER.map(bucket => {
                   const count = bucketData[bucket] || 0;
                   const pct   = Math.round((count / bucketTotal) * 100);
                   return (
@@ -349,43 +362,45 @@ const DashboardTab = ({ applicants = [], jobs = [] }) => {
       {/* Job Performance Table */}
       <Panel title="Job Posting Performance" icon={Clock}>
         {jobPerformance.length === 0
-          ? <p className="text-xs text-slate-400 text-center py-8">No jobs created yet</p>
+          ? <p className="text-xs text-slate-400 text-center py-8">No jobs yet</p>
           : (
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="w-full">
                 <thead>
-                  <tr className="border-b border-slate-100">
-                    {[['Job Title','left'],['Dept','left'],['Status','left'],['Applicants','right'],['Limit','right'],['Fill Rate','left']].map(([h, align]) => (
-                      <th key={h} className={`text-[10px] font-black text-slate-400 uppercase tracking-widest pb-3 pr-4 text-${align}`}>{h}</th>
+                  <tr className="border-b border-slate-50">
+                    {['Position', 'Department', 'Status', 'Applicants', 'Fill Rate'].map(h => (
+                      <th key={h} className="pb-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody>
                   {jobPerformance.map(job => (
-                    <tr key={job.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="py-3 pr-4 font-bold text-slate-800 truncate max-w-[160px]">{job.title}</td>
-                      <td className="py-3 pr-4 text-slate-500">{job.department || '—'}</td>
-                      <td className="py-3 pr-4">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black ${
-                          job.status === 'Open'   ? 'bg-emerald-50 text-emerald-600' :
-                          job.status === 'Closed' ? 'bg-rose-50 text-rose-500' :
-                                                    'bg-slate-100 text-slate-500'
-                        }`}>{job.status}</span>
+                    <tr key={job.id} className="border-b border-slate-50 last:border-0">
+                      <td className="py-3.5 pr-4">
+                        <p className="text-sm font-bold text-slate-800">{job.title}</p>
                       </td>
-                      <td className="py-3 pr-4 text-right font-black text-slate-700">{job.applicantCount}</td>
-                      <td className="py-3 pr-4 text-right text-slate-400">{job.applicant_limit || 50}</td>
-                      <td className="py-3">
+                      <td className="py-3.5 pr-4 text-xs text-slate-400">{job.department || '—'}</td>
+                      <td className="py-3.5 pr-4">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            job.status === 'Open' ? 'bg-emerald-400' : job.status === 'Closed' ? 'bg-rose-400' : 'bg-slate-300'
+                          }`} />
+                          <span className="text-xs font-bold text-slate-600">{job.status}</span>
+                        </div>
+                      </td>
+                      <td className="py-3.5 pr-4 text-sm font-bold text-slate-700">{job.applicantCount}</td>
+                      <td className="py-3.5">
                         <div className="flex items-center gap-2">
                           <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden min-w-[60px]">
-                            <div className="h-full rounded-full transition-all duration-500" style={{
-                              width: `${Math.min(job.fillPct, 100)}%`,
-                              background: job.fillPct >= 90 ? ROSE : job.fillPct >= 60 ? AMBER : GREEN,
-                            }} />
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${Math.min(job.fillPct, 100)}%`,
+                                background: job.fillPct >= 90 ? ROSE : job.fillPct >= 50 ? AMBER : GREEN,
+                              }}
+                            />
                           </div>
-                          <span className={`text-[10px] font-black w-8 text-right ${
-                            job.fillPct >= 90 ? 'text-rose-500' :
-                            job.fillPct >= 60 ? 'text-amber-500' : 'text-emerald-600'
-                          }`}>{Math.min(job.fillPct, 100)}%</span>
+                          <span className="text-[11px] font-black text-slate-500 w-8 shrink-0">{job.fillPct}%</span>
                         </div>
                       </td>
                     </tr>
