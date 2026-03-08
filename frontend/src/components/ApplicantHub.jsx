@@ -76,6 +76,7 @@ const ApplicantHub = () => {
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef          = useRef(null);
   const [availableJobs, setAvailableJobs] = useState([]);
+  const [fieldErrors, setFieldErrors] = useState({});
 
   useEffect(() => {
     document.title = 'Apply — IntelliHire | ProgressPro';
@@ -100,27 +101,148 @@ const ApplicantHub = () => {
       .catch(console.error);
   }, []);
 
-  const nextStep = () => setStep(s => s + 1);
+  const validateStep1 = () => {
+    const errors = [];
+    const newFieldErrors = {};
+    
+    if (!formData.f_name?.trim()) { errors.push("First name"); newFieldErrors.f_name = true; }
+    if (!formData.l_name?.trim()) { errors.push("Last name"); newFieldErrors.l_name = true; }
+    if (!formData.age || formData.age < 18 || formData.age > 100) { errors.push("Valid age (18-100)"); newFieldErrors.age = true; }
+    if (!formData.email?.trim()) { errors.push("Email"); newFieldErrors.email = true; }
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) { errors.push("Valid email format"); newFieldErrors.email = true; }
+    if (!formData.phone?.trim()) { errors.push("Phone number"); newFieldErrors.phone = true; }
+    else if (formData.phone.length < 10) { errors.push("Valid phone number (at least 10 digits)"); newFieldErrors.phone = true; }
+    if (!formData.current_city?.trim()) { errors.push("City"); newFieldErrors.current_city = true; }
+    if (!formData.current_province?.trim()) { errors.push("Province"); newFieldErrors.current_province = true; }
+    if (!formData.home_address?.trim()) { errors.push("Home address"); newFieldErrors.home_address = true; }
+    if (!formData.education) { errors.push("Education level"); newFieldErrors.education = true; }
+    
+    setFieldErrors(newFieldErrors);
+    return errors;
+  };
+
+  const validateStep2 = () => {
+    const errors = [];
+    const newFieldErrors = {};
+    
+    if (!formData.app_source) { errors.push("Application source"); newFieldErrors.app_source = true; }
+    if (formData.stable_internet === "Yes" && !formData.isp) { errors.push("Internet provider (ISP)"); newFieldErrors.isp = true; }
+    
+    setFieldErrors(newFieldErrors);
+    return errors;
+  };
+
+  const validateStep3 = () => {
+    const errors = [];
+    const newFieldErrors = {};
+    
+    if (!formData.applied_position) { errors.push("Applied position"); newFieldErrors.applied_position = true; }
+    if (!formData.resume) { errors.push("Resume file"); newFieldErrors.resume = true; }
+    
+    setFieldErrors(newFieldErrors);
+    return errors;
+  };
+
+  const nextStep = () => {
+    let errors = [];
+    
+    if (step === 1) errors = validateStep1();
+    else if (step === 2) errors = validateStep2();
+    else if (step === 3) errors = validateStep3();
+    
+    if (errors.length > 0) {
+      alert(`Please complete the following required fields:\n\n• ${errors.join('\n• ')}`);
+      return;
+    }
+    
+    setFieldErrors({});
+    setStep(s => s + 1);
+  };
+  
   const prevStep = () => setStep(s => s - 1);
 
   const handleChange      = e => setFormData({ ...formData, [e.target.name]: e.target.value });
   const handlePhoneChange = e => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, "") });
   const handleFileChange  = e => setFormData({ ...formData, resume: e.target.files[0] });
 
+  const validateForm = () => {
+    const errors = [];
+    
+    // Personal Information validation
+    if (!formData.f_name?.trim()) errors.push("First name is required");
+    if (!formData.l_name?.trim()) errors.push("Last name is required");
+    if (!formData.age || formData.age < 18 || formData.age > 100) errors.push("Valid age (18-100) is required");
+    if (!formData.email?.trim()) errors.push("Email is required");
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) errors.push("Valid email format is required");
+    if (!formData.phone?.trim()) errors.push("Phone number is required");
+    else if (formData.phone.length < 10) errors.push("Phone number must be at least 10 digits");
+    if (!formData.current_city?.trim()) errors.push("City is required");
+    if (!formData.current_province?.trim()) errors.push("Province is required");
+    if (!formData.home_address?.trim()) errors.push("Home address is required");
+    if (!formData.education) errors.push("Education level is required");
+    
+    // Background validation
+    if (!formData.app_source) errors.push("Application source is required");
+    if (formData.stable_internet === "Yes" && !formData.isp) errors.push("ISP is required when you have stable internet");
+    
+    // Position & Resume validation
+    if (!formData.applied_position) errors.push("Applied position is required");
+    if (!formData.resume) errors.push("Resume file is required");
+    
+    return errors;
+  };
+
   const handleSubmit = async () => {
-    if (!formData.resume) return alert("Please upload your resume");
     if (submitting) return;
+    
+    // Validate all fields
+    const validationErrors = validateForm();
+    if (validationErrors.length > 0) {
+      const errorMessage = validationErrors.length === 1 
+        ? validationErrors[0]
+        : `Please fix the following:\n\n${validationErrors.map((e, i) => `${i + 1}. ${e}`).join('\n')}`;
+      alert(errorMessage);
+      return;
+    }
+    
     setSubmitting(true);
     const data = new FormData();
     Object.entries(formData).forEach(([k, v]) => { if (v !== null) data.append(k, v); });
+    
     try {
       await axios.post(`${API_BASE_URL}/api/applicants/`, data, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setStep(5);
     } catch (err) {
-      alert("Submission failed. Please check all fields.");
-      console.error(err);
+      console.error("Submission error:", err);
+      
+      // Extract specific error message from backend
+      let errorMessage = "Submission failed. Please try again.";
+      
+      if (err.response?.data) {
+        const errorData = err.response.data;
+        
+        // Handle FastAPI validation errors
+        if (errorData.detail) {
+          if (Array.isArray(errorData.detail)) {
+            // Multiple validation errors
+            const fieldErrors = errorData.detail.map(e => {
+              const field = e.loc?.[e.loc.length - 1] || 'field';
+              return `${field}: ${e.msg}`;
+            });
+            errorMessage = `Validation errors:\n\n${fieldErrors.join('\n')}`;
+          } else if (typeof errorData.detail === 'string') {
+            errorMessage = errorData.detail;
+          }
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+      } else if (err.message) {
+        errorMessage = `Network error: ${err.message}`;
+      }
+      
+      alert(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -198,18 +320,37 @@ const ApplicantHub = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <LabelText>First Name</LabelText>
-                  <Input name="f_name" value={formData.f_name} onChange={handleChange} placeholder="Juan" className="rounded-xl h-11 bg-slate-50 border-slate-200" />
+                  <Input 
+                    name="f_name" 
+                    value={formData.f_name} 
+                    onChange={handleChange} 
+                    placeholder="Juan" 
+                    className={`rounded-xl h-11 bg-slate-50 ${fieldErrors.f_name ? 'border-red-500 border-2' : 'border-slate-200'}`}
+                  />
                 </div>
                 <div>
                   <LabelText>Last Name</LabelText>
-                  <Input name="l_name" value={formData.l_name} onChange={handleChange} placeholder="Dela Cruz" className="rounded-xl h-11 bg-slate-50 border-slate-200" />
+                  <Input 
+                    name="l_name" 
+                    value={formData.l_name} 
+                    onChange={handleChange} 
+                    placeholder="Dela Cruz" 
+                    className={`rounded-xl h-11 bg-slate-50 ${fieldErrors.l_name ? 'border-red-500 border-2' : 'border-slate-200'}`}
+                  />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <LabelText>Age</LabelText>
-                  <Input name="age" type="number" value={formData.age} onChange={handleChange} placeholder="25" className="rounded-xl h-11 bg-slate-50 border-slate-200" />
+                  <Input 
+                    name="age" 
+                    type="number" 
+                    value={formData.age} 
+                    onChange={handleChange} 
+                    placeholder="25" 
+                    className={`rounded-xl h-11 bg-slate-50 ${fieldErrors.age ? 'border-red-500 border-2' : 'border-slate-200'}`}
+                  />
                 </div>
                 <div>
                   <LabelText>Gender</LabelText>
@@ -230,28 +371,59 @@ const ApplicantHub = () => {
 
               <div>
                 <LabelText>Email Address</LabelText>
-                <Input name="email" type="email" value={formData.email} onChange={handleChange} placeholder="juan@email.com" className="rounded-xl h-11 bg-slate-50 border-slate-200" />
+                <Input 
+                  name="email" 
+                  type="email" 
+                  value={formData.email} 
+                  onChange={handleChange} 
+                  placeholder="juan@email.com" 
+                  className={`rounded-xl h-11 bg-slate-50 ${fieldErrors.email ? 'border-red-500 border-2' : 'border-slate-200'}`}
+                />
               </div>
 
               <div>
                 <LabelText>Phone Number</LabelText>
-                <Input name="phone" value={formData.phone} onChange={handlePhoneChange} placeholder="09XXXXXXXXX" className="rounded-xl h-11 bg-slate-50 border-slate-200" />
+                <Input 
+                  name="phone" 
+                  value={formData.phone} 
+                  onChange={handlePhoneChange} 
+                  placeholder="09XXXXXXXXX" 
+                  className={`rounded-xl h-11 bg-slate-50 ${fieldErrors.phone ? 'border-red-500 border-2' : 'border-slate-200'}`}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <LabelText>City</LabelText>
-                  <Input name="current_city" value={formData.current_city} onChange={handleChange} placeholder="Cebu City" className="rounded-xl h-11 bg-slate-50 border-slate-200" />
+                  <Input 
+                    name="current_city" 
+                    value={formData.current_city} 
+                    onChange={handleChange} 
+                    placeholder="Cebu City" 
+                    className={`rounded-xl h-11 bg-slate-50 ${fieldErrors.current_city ? 'border-red-500 border-2' : 'border-slate-200'}`}
+                  />
                 </div>
                 <div>
                   <LabelText>Province</LabelText>
-                  <Input name="current_province" value={formData.current_province} onChange={handleChange} placeholder="Cebu" className="rounded-xl h-11 bg-slate-50 border-slate-200" />
+                  <Input 
+                    name="current_province" 
+                    value={formData.current_province} 
+                    onChange={handleChange} 
+                    placeholder="Cebu" 
+                    className={`rounded-xl h-11 bg-slate-50 ${fieldErrors.current_province ? 'border-red-500 border-2' : 'border-slate-200'}`}
+                  />
                 </div>
               </div>
 
               <div>
                 <LabelText>Home Address</LabelText>
-                <Input name="home_address" value={formData.home_address} onChange={handleChange} placeholder="123 Main St, Brgy..." className="rounded-xl h-11 bg-slate-50 border-slate-200" />
+                <Input 
+                  name="home_address" 
+                  value={formData.home_address} 
+                  onChange={handleChange} 
+                  placeholder="123 Main St, Brgy..." 
+                  className={`rounded-xl h-11 bg-slate-50 ${fieldErrors.home_address ? 'border-red-500 border-2' : 'border-slate-200'}`}
+                />
               </div>
 
               {/* ── Education dropdown (restored) ────────────────────────── */}
@@ -261,7 +433,7 @@ const ApplicantHub = () => {
                   value={formData.education}
                   onValueChange={v => setFormData({ ...formData, education: v })}
                 >
-                  <SelectTrigger className="rounded-xl h-11 bg-slate-50 border-slate-200 text-slate-700">
+                  <SelectTrigger className={`rounded-xl h-11 bg-slate-50 text-slate-700 ${fieldErrors.education ? 'border-red-500 border-2' : 'border-slate-200'}`}>
                     <SelectValue placeholder="Select highest education" />
                   </SelectTrigger>
                   <SelectContent className={selectContentCls}>
@@ -292,7 +464,7 @@ const ApplicantHub = () => {
                   value={formData.app_source}
                   onValueChange={v => setFormData({ ...formData, app_source: v })}
                 >
-                  <SelectTrigger className="rounded-xl h-11 bg-slate-50 border-slate-200 text-slate-700">
+                  <SelectTrigger className={`rounded-xl h-11 bg-slate-50 text-slate-700 ${fieldErrors.app_source ? 'border-red-500 border-2' : 'border-slate-200'}`}>
                     <SelectValue placeholder="Select source" />
                   </SelectTrigger>
                   <SelectContent className={selectContentCls}>
@@ -327,7 +499,7 @@ const ApplicantHub = () => {
                     value={formData.isp}
                     onValueChange={v => setFormData({ ...formData, isp: v })}
                   >
-                    <SelectTrigger className="rounded-xl h-11 bg-slate-50 border-slate-200 text-slate-700">
+                    <SelectTrigger className={`rounded-xl h-11 bg-slate-50 text-slate-700 ${fieldErrors.isp ? 'border-red-500 border-2' : 'border-slate-200'}`}>
                       <SelectValue placeholder="Select your ISP" />
                     </SelectTrigger>
                     <SelectContent className={selectContentCls}>
@@ -364,7 +536,7 @@ const ApplicantHub = () => {
                   value={formData.applied_position}
                   onValueChange={v => setFormData({ ...formData, applied_position: v })}
                 >
-                  <SelectTrigger className="rounded-xl h-11 bg-slate-50 border-slate-200 text-slate-700">
+                  <SelectTrigger className={`rounded-xl h-11 bg-slate-50 text-slate-700 ${fieldErrors.applied_position ? 'border-red-500 border-2' : 'border-slate-200'}`}>
                     <SelectValue placeholder="Select a position" />
                   </SelectTrigger>
                   <SelectContent className={selectContentCls}>
@@ -386,10 +558,14 @@ const ApplicantHub = () => {
                 />
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full h-28 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 transition-all text-slate-400 hover:border-slate-400 hover:text-slate-600"
+                  className={`w-full h-28 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 transition-all text-slate-400 hover:border-slate-400 hover:text-slate-600 ${
+                    fieldErrors.resume ? 'border-red-500' : ''
+                  }`}
                   style={
                     formData.resume
                       ? { borderColor: "#00AECC", background: "#E6F7FB", color: "#1A3C6E" }
+                      : fieldErrors.resume 
+                      ? { borderColor: "#ef4444" }
                       : { borderColor: "#CBD5E1" }
                   }
                 >

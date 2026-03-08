@@ -15,20 +15,32 @@ def _init():
 
     cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH")
     if not cred_path:
-        raise RuntimeError("FIREBASE_CREDENTIALS_PATH is not set in .env")
+        print("⚠️  WARNING: FIREBASE_CREDENTIALS_PATH is not set in .env - Firebase features will be disabled")
+        return
 
-    cred = credentials.Certificate(cred_path)
+    if not os.path.exists(cred_path):
+        print(f"⚠️  WARNING: Firebase credentials file not found at {cred_path} - Firebase features will be disabled")
+        return
 
-    # 🔹 Minimal change: check if app already exists
-    if not firebase_admin._apps:
-        _app = firebase_admin.initialize_app(cred)  # initialize only once
-    else:
-        _app = firebase_admin.get_app()  # reuse default app if already initialized
+    try:
+        cred = credentials.Certificate(cred_path)
 
-    _db = firestore.client()  # same as before, safe to call multiple times
+        # 🔹 Minimal change: check if app already exists
+        if not firebase_admin._apps:
+            _app = firebase_admin.initialize_app(cred)  # initialize only once
+        else:
+            _app = firebase_admin.get_app()  # reuse default app if already initialized
+
+        _db = firestore.client()  # same as before, safe to call multiple times
+        print("✅ Firebase initialized successfully")
+    except Exception as e:
+        print(f"⚠️  WARNING: Failed to initialize Firebase: {e}")
+        print("Firebase features will be disabled")
 
 def get_db():
     _init()
+    if _db is None:
+        raise RuntimeError("Firebase is not initialized. Please configure FIREBASE_CREDENTIALS_PATH in .env")
     return _db
 
 def doc_to_dict(doc) -> dict:

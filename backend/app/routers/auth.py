@@ -1,12 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-import firebase_admin
-from firebase_admin import auth as firebase_auth, credentials
-
-
-# Initialize Firebase Admin once
-cred = credentials.Certificate("serviceAccountKey.json")
-firebase_admin.initialize_app(cred)
+from firebase_admin import auth as firebase_auth
 
 
 router = APIRouter()

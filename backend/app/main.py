@@ -13,7 +13,10 @@ from app.routers.auth import router as auth_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    get_db()   # warm Firebase connection pool
+    try:
+        get_db()   # warm Firebase connection pool
+    except RuntimeError as e:
+        print(f"⚠️  {e}")
     yield
 
 
