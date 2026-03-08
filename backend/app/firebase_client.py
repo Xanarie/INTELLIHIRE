@@ -8,25 +8,28 @@ load_dotenv()
 _app = None
 _db  = None
 
-
 def _init():
     global _app, _db
     if _app is not None:
-        return
+        return  # Already initialized, do nothing
 
     cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH")
     if not cred_path:
         raise RuntimeError("FIREBASE_CREDENTIALS_PATH is not set in .env")
 
-    cred  = credentials.Certificate(cred_path)
-    _app  = firebase_admin.initialize_app(cred)
-    _db   = firestore.client()
+    cred = credentials.Certificate(cred_path)
 
+    # 🔹 Minimal change: check if app already exists
+    if not firebase_admin._apps:
+        _app = firebase_admin.initialize_app(cred)  # initialize only once
+    else:
+        _app = firebase_admin.get_app()  # reuse default app if already initialized
+
+    _db = firestore.client()  # same as before, safe to call multiple times
 
 def get_db():
     _init()
     return _db
-
 
 def doc_to_dict(doc) -> dict:
     """Converts a Firestore DocumentSnapshot → plain dict with 'id' as str."""
