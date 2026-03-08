@@ -15,7 +15,7 @@ import { Separator } from "@/components/ui/separator";
 import ReactMarkdown from "react-markdown";
 import { getFlags } from "../utils/flagUtils";
 
-const API_BASE_URL = "http://localhost:8000/api/admin";
+const API_BASE_URL = "https://intellihire-api.onrender.com/api/admin/jobs";
 
 const HIRING_STAGES = ["Pre-screening", "Screening", "Interview", "Offer", "Accepted", "Rejected"];
 
