@@ -4,12 +4,14 @@ import { getAuth } from "firebase/auth";
 import { getDatabase } from "firebase/database";
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: "AIzaSyAkZql6w6fTwCZbLJ1FDBQv6QA_KyjyV7A",
+  authDomain: "intellihire-system.firebaseapp.com",
+  databaseURL: "https://intellihire-system-default-rtdb.firebaseio.com",
+  projectId: "intellihire-system",
+  storageBucket: "intellihire-system.firebasestorage.app",
+  messagingSenderId: "856403154622",
+  appId: "1:856403154622:web:48b4d4099a78256d9cb0ef",
+  measurementId: "G-LH5GH1T14S",
 };
 
 const app = initializeApp(firebaseConfig);
