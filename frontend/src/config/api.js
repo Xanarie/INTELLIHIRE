@@ -5,12 +5,12 @@ export const API_PUBLIC = import.meta.env.VITE_API_PUBLIC_URL ?? 'http://localho
 
 export const api = axios.create({
   baseURL: API_BASE,
-  timeout: 10_000,
+  timeout: 60_000,
 });
 
 export const apiPublic = axios.create({
   baseURL: API_PUBLIC,
-  timeout: 8_000,
+  timeout: 60_000,
 });
 
 // Inject the logged-in user's name on every admin request so the backend

@@ -94,8 +94,8 @@ const ApplicantHub = () => {
   });
 
   useEffect(() => {
-    axios.get(`${api}/api/applicants/jobs`)
-      .then(r => setAvailableJobs(r.data))
+    api.get('/api/applicants/jobs')
+      .then(r => setAvailableJobs(Array.isArray(r.data) ? r.data : []))
       .catch(console.error);
   }, []);
 
@@ -113,8 +113,8 @@ const ApplicantHub = () => {
     const data = new FormData();
     Object.entries(formData).forEach(([k, v]) => { if (v !== null) data.append(k, v); });
     try {
-      await axios.post(`${api}/api/applicants/`, data, {
-        headers: { "Content-Type": "multipart/form-data" },
+      await api.post('/api/applicants/', data, {
+          headers: { "Content-Type": "multipart/form-data" },
       });
       setStep(5);
     } catch (err) {

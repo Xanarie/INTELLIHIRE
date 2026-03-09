@@ -1,6 +1,5 @@
-// frontend/src/hooks/useAdminData.js
 import { useState, useEffect, useCallback } from 'react';
-import { api } from '@/config/api';
+import { api } from '../config/api';
 
 const extractErrMessage = (err, fallback) => {
   const data = err?.response?.data;

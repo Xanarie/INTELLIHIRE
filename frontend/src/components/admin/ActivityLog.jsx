@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
 import {
   RefreshCw, Trash2, User, Briefcase, Users,
   Cpu, Filter, ChevronDown, RotateCcw,
@@ -214,8 +213,8 @@ const ActivityLog = () => {
       const params = new URLSearchParams({ limit: '200' });
       if (entityFilter) params.set('entity_type', entityFilter);
       if (actionFilter) params.set('action',      actionFilter);
-      const res = await axios.get(`${api}/logs?${params}`);
-      setLogs(res.data || []);
+      const res = await api.get(`/logs?${params}`);
+      setLogs(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error('Failed to fetch activity logs', err);
     } finally {
@@ -229,7 +228,7 @@ const ActivityLog = () => {
     if (!window.confirm('Clear all activity logs? This cannot be undone.')) return;
     try {
       setClearing(true);
-      await axios.delete(`${api}/logs`);
+      await api.delete('/logs');
       setLogs([]);
     } catch (err) {
       console.error('Failed to clear logs', err);
