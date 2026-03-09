@@ -22,7 +22,7 @@ export const useJobData = () => {
     try {
       setLoading(true);
       const res = await axios.get(`${api}/jobs`);
-      setJobs(res.data || []);
+      setJobs(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error('Failed to fetch jobs', err?.response?.data ?? err);
     } finally {

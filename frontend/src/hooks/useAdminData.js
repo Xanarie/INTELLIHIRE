@@ -28,8 +28,8 @@ export const useAdminData = () => {
           return { data: [] };
         }),
       ]);
-      setApplicants(appRes.data || []);
-      setEmployees(empRes.data || []);
+        setApplicants(Array.isArray(appRes.data) ? appRes.data : []);
+        setEmployees(Array.isArray(empRes.data) ? empRes.data : []);
     } catch (err) {
       console.error('Critical data fetch failed', err?.response?.data ?? err);
     } finally {
