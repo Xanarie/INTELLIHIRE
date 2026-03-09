@@ -1,4 +1,12 @@
 {
+  "name": "intellihire",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && uvicorn app.main:app --reload",
+    "dev:all": "concurrently \"npm run dev:backend\" \"npm run dev\"",
+    "install:all": "cd frontend && npm install && cd ../backend && pip install -r requirements.txt"
+  },
   "dependencies": {
     "axios": "^1.13.2"
   },

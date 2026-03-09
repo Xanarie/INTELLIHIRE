@@ -1,0 +1,24 @@
+# Firebase App Hosting configuration
+runConfig:
+  # Minimum 1 CPU and 512MB memory for AI workloads
+  cpu: 1
+  memoryMiB: 2048
+  # Maximum number of instances
+  maxInstances: 10
+  minInstances: 0
+  # Concurrency - number of requests per instance
+  concurrency: 80
+
+env:
+  - variable: FRONTEND_URL
+    value: https://intellihire-system.web.app
+  - variable: PORT
+    value: "8080"
+  - variable: FIREBASE_CREDENTIALS_PATH
+    value: serviceAccountKey.json
+  - variable: CLOUDINARY_CLOUD_NAME
+    secret: CLOUDINARY_CLOUD_NAME
+  - variable: CLOUDINARY_API_KEY
+    secret: CLOUDINARY_API_KEY
+  - variable: CLOUDINARY_API_SECRET
+    secret: CLOUDINARY_API_SECRET

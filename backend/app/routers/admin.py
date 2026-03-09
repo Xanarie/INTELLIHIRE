@@ -22,31 +22,12 @@ from app.ai.resume_score import score_resume_quality
 from app.ai.matching     import score_applicant
 from app.ai.summarizer   import summarize_prescreen
 from app.routers.logs    import write_log
+from app.utils import job_full_text, has_job_description, applicant_full_name
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
 
 # ── Shared helpers ────────────────────────────────────────────────────────────
-
-def _has_desc(job: dict) -> bool:
-    return any(
-        (job.get(f) or "").strip()
-        for f in ("key_responsibilities", "required_qualifications",
-                  "preferred_qualifications", "key_competencies")
-    )
-
-def _job_full_text(job: dict) -> str:
-    parts = []
-    if job.get("key_responsibilities"):
-        parts.append(f"Responsibilities:\n{job['key_responsibilities']}")
-    if job.get("required_qualifications"):
-        parts.append(f"Required Qualifications:\n{job['required_qualifications']}")
-        parts.append(f"Must Have:\n{job['required_qualifications']}")
-    if job.get("preferred_qualifications"):
-        parts.append(f"Preferred Qualifications:\n{job['preferred_qualifications']}")
-    if job.get("key_competencies"):
-        parts.append(f"Key Competencies:\n{job['key_competencies']}")
-    return "\n\n".join(parts)
 
 def _download_resume_bytes(url: str, timeout: int = 30) -> bytes:
     try:
@@ -66,8 +47,11 @@ def _extract_focus_text(resume_bytes: bytes, suffix: str = ".pdf") -> str:
     finally:
         os.unlink(tmp_path)
 
-def _applicant_name(data: dict) -> str:
-    return f"{data.get('f_name', '')} {data.get('l_name', '')}".strip() or "Unknown"
+def _validate_resume_file(filename: str) -> bool:
+    """Validate resume file type."""
+    allowed_extensions = {'.pdf', '.doc', '.docx'}
+    ext = os.path.splitext(filename)[1].lower()
+    return ext in allowed_extensions
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -101,7 +85,7 @@ def update_applicant(applicant_id: str, applicant_data: UserUpdate):
     data = doc_to_dict(ref.get())
     write_log(
         action="applicant_updated", entity_type="applicant",
-        entity_id=applicant_id,   entity_name=_applicant_name(data),
+        entity_id=applicant_id,   entity_name=applicant_full_name(data),
         details=f"Profile updated. Fields: {', '.join(payload.keys())}",
     )
     return data
@@ -119,7 +103,7 @@ def update_applicant_status(applicant_id: str, status_data: StatusUpdate):
     data = doc_to_dict(ref.get())
     write_log(
         action="status_changed", entity_type="applicant",
-        entity_id=applicant_id,  entity_name=_applicant_name(data),
+        entity_id=applicant_id,  entity_name=applicant_full_name(data),
         details=f"Stage moved: '{prev}' → '{status_data.hiring_status}'",
     )
     return data
@@ -137,7 +121,7 @@ def save_recruiter_notes(applicant_id: str, payload: dict):
     data = doc_to_dict(ref.get())
     write_log(
         action="notes_updated", entity_type="applicant",
-        entity_id=applicant_id, entity_name=_applicant_name(data),
+        entity_id=applicant_id, entity_name=applicant_full_name(data),
         details="Recruiter notes updated.",
     )
     return {"ok": True, "recruiter_notes": notes}
@@ -151,7 +135,7 @@ def delete_applicant(applicant_id: str):
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Applicant not found")
     data = doc_to_dict(doc)
-    name = _applicant_name(data)
+    name = applicant_full_name(data)
     if data.get("resume_storage_path"):
         delete_resume(data["resume_storage_path"])
     for s in db.collection("applicant_statuses").where("applicant_id", "==", applicant_id).get():
@@ -177,7 +161,7 @@ def view_resume(applicant_id: str):
         raise HTTPException(status_code=404, detail="No resume on file")
     write_log(
         action="resume_viewed", entity_type="applicant",
-        entity_id=applicant_id, entity_name=_applicant_name(data),
+        entity_id=applicant_id, entity_name=applicant_full_name(data),
         details="Resume opened.",
     )
     resume_bytes = _download_resume_bytes(url)
@@ -195,17 +179,24 @@ def rerun_prescreen(applicant_id: str):
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Applicant not found")
     data = doc_to_dict(doc)
-    name = _applicant_name(data)
+    name = applicant_full_name(data)
     url  = data.get("resume_path")
     if not url:
         raise HTTPException(status_code=400, detail="No resume on file")
 
-    resume_bytes      = _download_resume_bytes(url)
-    resume_focus_text = _extract_focus_text(resume_bytes)
+    try:
+        resume_bytes = _download_resume_bytes(url)
+        resume_focus_text = _extract_focus_text(resume_bytes)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process resume: {str(e)}")
+    
     if not resume_focus_text:
         raise HTTPException(status_code=422, detail="Could not extract text from resume")
 
     updates = {}
+    # Store the extracted resume text for future use (e.g., chat)
+    updates["resume_focus_text"] = resume_focus_text
+    
     try:
         rs = score_resume_quality(resume_focus_text)
         updates["ai_resume_score"]      = float(rs.get("score", 0.0))
@@ -215,11 +206,11 @@ def rerun_prescreen(applicant_id: str):
         print(f"[Prescreen] Resume score failed: {e}")
 
     open_jobs      = db.collection("jobs").where("status", "==", "Open").get()
-    scoreable_jobs = [doc_to_dict(j) for j in open_jobs if _has_desc(doc_to_dict(j))]
+    scoreable_jobs = [doc_to_dict(j) for j in open_jobs if has_job_description(doc_to_dict(j))]
 
     def _score_job(jd):
         try:
-            result = score_applicant(resume_focus_text, _job_full_text(jd))
+            result = score_applicant(resume_focus_text, job_full_text(jd))
             return jd["title"], result
         except Exception as e:
             print(f"[Prescreen] Job match failed for {jd.get('title')}: {e}")
@@ -244,7 +235,17 @@ def rerun_prescreen(applicant_id: str):
         updates["ai_recommended_role"] = best
 
     try:
-        updates["ai_prescreening_summary"] = summarize_prescreen(resume_focus_text, data)
+        # Get the match result for the applied position if available
+        applied = data.get("applied_position", "")
+        match_result = job_scores.get(applied) if applied in job_scores else None
+        suitable_role = updates.get("ai_recommended_role")
+        
+        updates["ai_prescreening_summary"] = summarize_prescreen(
+            resume_focus_text=resume_focus_text,
+            job_title=applied or None,
+            match_result=match_result,
+            suitable_role=suitable_role,
+        )
     except Exception as e:
         print(f"[Prescreen] Summarizer failed: {e}")
 
@@ -275,13 +276,13 @@ def get_role_suggestions(applicant_id: str):
     if not resume_focus_text:
         return {"suggestions": []}
     open_jobs      = db.collection("jobs").where("status", "==", "Open").get()
-    scoreable_jobs = [doc_to_dict(j) for j in open_jobs if _has_desc(doc_to_dict(j))]
+    scoreable_jobs = [doc_to_dict(j) for j in open_jobs if has_job_description(doc_to_dict(j))]
     if not scoreable_jobs:
         return {"suggestions": []}
 
     def _score(jd):
         try:
-            result = score_applicant(resume_focus_text, _job_full_text(jd))
+            result = score_applicant(resume_focus_text, job_full_text(jd))
             return {
                 "job_id": jd["id"], "title": jd["title"],
                 "department": jd.get("department", ""),
@@ -311,7 +312,7 @@ def smart_screen(title: str):
     if not job_q:
         raise HTTPException(status_code=404, detail="Job not found")
     job     = doc_to_dict(job_q[0])
-    jd_text = _job_full_text(job)
+    jd_text = job_full_text(job)
     if not jd_text.strip():
         raise HTTPException(status_code=400, detail="Job has no description")
     all_applicants = [doc_to_dict(d) for d in db.collection("applicants").get()]

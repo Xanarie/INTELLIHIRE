@@ -258,7 +258,7 @@ const DashboardTab = ({ applicants = [], jobs = [] }) => {
     <div className="space-y-6">
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
         <StatCard label="Total Applicants"  value={stats.total}
           sub="All time" color={BLUE} icon={Users} />
         <StatCard label="Open Positions" value={stats.openJobs}
@@ -271,7 +271,7 @@ const DashboardTab = ({ applicants = [], jobs = [] }) => {
       </div>
 
       {/* Pipeline + Sources */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
         <Panel title="Hiring Pipeline" icon={TrendingUp}>
           {pipelineData.every(d => d.count === 0)
             ? <p className="text-xs text-slate-400 text-center py-8">No applicants yet</p>
@@ -283,9 +283,9 @@ const DashboardTab = ({ applicants = [], jobs = [] }) => {
           {sourceData.length === 0
             ? <p className="text-xs text-slate-400 text-center py-8">No source data yet</p>
             : (
-              <div className="flex items-center gap-6">
+              <div className="flex flex-col sm:flex-row items-center gap-4 md:gap-6">
                 <DonutChart data={sourceData} size={130} />
-                <div className="flex-1 space-y-2 min-w-0">
+                <div className="flex-1 space-y-2 min-w-0 w-full">
                   {sourceData.slice(0, 6).map((s, i) => (
                     <div key={i} className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full shrink-0" style={{ background: s.fill }} />
@@ -301,7 +301,7 @@ const DashboardTab = ({ applicants = [], jobs = [] }) => {
       </div>
 
       {/* Top Positions + AI Quality */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
         <Panel title="Top Applied Positions" icon={BarChart2}>
           {positionData.length === 0
             ? <p className="text-xs text-slate-400 text-center py-8">No position data yet</p>

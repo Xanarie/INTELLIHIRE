@@ -119,10 +119,10 @@ const NavItem = ({ icon: Icon, label, active, onClick, collapsed }) => (
 );
 
 const SearchBar = ({ value, onChange, placeholder }) => (
-  <div className="relative">
+  <div className="relative w-full sm:w-64">
     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={15} />
     <input
-      className="bg-white rounded-xl py-2.5 pl-9 pr-8 text-sm w-64 shadow-sm border border-slate-200 outline-none focus:border-slate-400 transition-colors placeholder:text-slate-300"
+      className="bg-white rounded-xl py-2.5 pl-9 pr-8 text-sm w-full shadow-sm border border-slate-200 outline-none focus:border-slate-400 transition-colors placeholder:text-slate-300"
       placeholder={`Search ${placeholder}…`}
       value={value}
       onChange={e => onChange(e.target.value)}
@@ -529,9 +529,11 @@ const AdminPortal = () => {
 
       {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
       <aside
-        className={`bg-white border-r border-slate-100 flex flex-col transition-all duration-300 z-30 shrink-0 ${
-          collapsed ? 'w-[68px] px-3 py-5' : 'w-60 px-5 py-6'
-        }`}
+        className={`bg-white border-r border-slate-100 flex flex-col transition-all duration-300 z-30 shrink-0 
+          ${collapsed ? 'w-[68px] px-3 py-5' : 'w-60 px-5 py-6'}
+          max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:w-64 max-md:px-5 max-md:py-6 max-md:shadow-2xl
+          ${collapsed ? 'max-md:-translate-x-full' : 'max-md:translate-x-0'}
+        `}
       >
         <Brand collapsed={collapsed} toggle={() => setCollapsed(!collapsed)} />
         <nav className="flex flex-col gap-0.5 flex-1 mt-8">
@@ -573,21 +575,42 @@ const AdminPortal = () => {
         </button>
       </aside>
 
+      {/* Mobile sidebar backdrop */}
+      {!collapsed && (
+        <div 
+          className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-20 md:hidden"
+          onClick={() => setCollapsed(true)}
+        />
+      )}
+
       {/* ── Main ────────────────────────────────────────────────────────────── */}
       <main className={`flex-1 flex flex-col min-w-0 ${isRecruitment ? 'overflow-hidden' : 'overflow-y-auto'}`}>
 
-        <header className="shrink-0 flex justify-between items-center px-8 pt-7 pb-5 bg-slate-50 border-b border-slate-100">
-          <div>
-            <h1 className="text-xl font-black text-slate-800 tracking-tight">
-              {activeTabMeta?.label ?? activeTab}
-            </h1>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
-              IntelliHire — ProgressPro Services Inc.
-            </p>
+        <header className="shrink-0 flex justify-between items-center px-4 md:px-8 pt-5 md:pt-7 pb-4 md:pb-5 bg-slate-50 border-b border-slate-100">
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Mobile menu button */}
+            <button
+              onClick={() => setCollapsed(!collapsed)}
+              className="md:hidden p-2 rounded-lg hover:bg-slate-100 transition-colors text-slate-600"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <div className="min-w-0">
+              <h1 className="text-lg md:text-xl font-black text-slate-800 tracking-tight truncate">
+                {activeTabMeta?.label ?? activeTab}
+              </h1>
+              <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5 hidden sm:block">
+                IntelliHire — ProgressPro Services Inc.
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
             {showSearch && (
-              <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder={activeTabMeta?.label ?? activeTab} />
+              <div className="hidden sm:block">
+                <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder={activeTabMeta?.label ?? activeTab} />
+              </div>
             )}
             <NotificationBell
               notifications={notifications}
@@ -604,13 +627,20 @@ const AdminPortal = () => {
           </div>
         </header>
 
+        {/* Mobile search bar */}
+        {showSearch && (
+          <div className="sm:hidden px-4 py-3 bg-slate-50 border-b border-slate-100">
+            <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder={activeTabMeta?.label ?? activeTab} />
+          </div>
+        )}
+
         {activeTab === 'dashboard' && (
-          <div className="px-8 py-8">
+          <div className="px-4 md:px-8 py-6 md:py-8">
             <DashboardTab applicants={applicants} jobs={jobs} onSelectApplicant={setSelectedApplicantId} />
           </div>
         )}
         {activeTab === 'recruitment' && (
-          <div className="flex-1 min-h-0 px-8 py-6 flex flex-col">
+          <div className="flex-1 min-h-0 px-4 md:px-8 py-4 md:py-6 flex flex-col">
             <RecruitmentTab
               applicants={filteredApplicants}
               flagMap={flagMap}
@@ -622,7 +652,7 @@ const AdminPortal = () => {
           </div>
         )}
         {activeTab === 'jobs' && (
-          <div className="px-8 py-8">
+          <div className="px-4 md:px-8 py-6 md:py-8">
             <JobTab
               jobs={filteredJobs} applicants={applicants}
               onEdit={handleEditJob}
@@ -638,7 +668,7 @@ const AdminPortal = () => {
           </div>
         )}
         {activeTab === 'employee' && (
-          <div className="px-8 py-8">
+          <div className="px-4 md:px-8 py-6 md:py-8">
             <EmployeeTab
               employees={filteredEmployees}
               onSave={async emp => {
@@ -655,7 +685,7 @@ const AdminPortal = () => {
           </div>
         )}
         {activeTab === 'onboarding' && (
-          <div className="px-8 py-8">
+          <div className="px-4 md:px-8 py-6 md:py-8">
             <OnboardingTab
               applicants={onboardingApplicants}
               onRefresh={refresh}
@@ -665,12 +695,12 @@ const AdminPortal = () => {
           </div>
         )}
         {activeTab === 'ai' && (
-          <div className="px-8 py-8">
+          <div className="px-4 md:px-8 py-6 md:py-8">
             <AITab applicants={applicants} jobs={jobs} onSelectApplicant={setSelectedApplicantId} />
           </div>
         )}
         {activeTab === 'logs' && (
-          <div className="px-8 py-8">
+          <div className="px-4 md:px-8 py-6 md:py-8">
             <ActivityLog />
           </div>
         )}

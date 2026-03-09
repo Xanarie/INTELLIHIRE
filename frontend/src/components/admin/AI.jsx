@@ -1,8 +1,9 @@
 // frontend/src/components/admin/AI.jsx
 import React, { useState, useMemo, useEffect } from 'react';
 import { api } from '@/config/api';
-import { SlidersHorizontal, Trophy, Search, FileText, Sparkles, Briefcase, Loader2, Play, CheckCircle2, XCircle, RotateCcw } from 'lucide-react';
+import { SlidersHorizontal, Trophy, Search, FileText, Sparkles, Briefcase, Loader2, Play, CheckCircle2, XCircle, RotateCcw, MessageCircle } from 'lucide-react';
 import CandidateModal from '../modals/CandidateModal';
+import PrescreenChat from './PrescreenChat';
 
 const DEFAULT_WEIGHTS = { structure: 30, experience: 30, impact: 25, clarity: 15 };
 const WEIGHT_META = [
@@ -79,7 +80,7 @@ const DonutChart = ({ weights }) => {
 };
 
 // ── Rank row ──────────────────────────────────────────────────────────────────
-const RankRow = ({ rank, app, score, sublabel, onNameClick }) => (
+const RankRow = ({ rank, app, score, sublabel, onNameClick, onChatClick }) => (
   <div className="flex items-center gap-3 py-2.5 px-4 rounded-xl border border-slate-100 bg-white hover:border-[#2A5C9A]/20 hover:shadow-sm transition-all">
     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${
       rank === 1 ? 'bg-amber-400 text-white' :
@@ -96,6 +97,15 @@ const RankRow = ({ rank, app, score, sublabel, onNameClick }) => (
       </button>
       <p className="text-[10px] text-slate-400 truncate">{sublabel}</p>
     </div>
+    {onChatClick && (
+      <button
+        onClick={() => onChatClick(app)}
+        className="p-2 rounded-lg bg-[#00AECC]/10 hover:bg-[#00AECC]/20 text-[#00AECC] transition-all shrink-0"
+        title="Start pre-screening chat"
+      >
+        <MessageCircle size={14} />
+      </button>
+    )}
     <div className={`px-2.5 py-0.5 rounded-lg border text-xs font-black shrink-0 ${scoreBg(score)} ${scoreColor(score)}`}>
       {score != null ? score : '—'}
       <span className="text-[9px] font-medium opacity-60 ml-0.5">/ 100</span>
@@ -244,6 +254,25 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
   const openModal = (appOrResult) => {
     const full = applicants.find(a => a.id === (appOrResult.id || appOrResult.applicant_id));
     setModalApp(full || appOrResult);
+  };
+
+  // ── Prescreen Chat ────────────────────────────────────────────────────────
+  const [chatApp, setChatApp] = useState(null);
+  const [chatJob, setChatJob] = useState(null);
+
+  const startPrescreenChat = (app, jobTitle) => {
+    const job = jobs.find(j => j.title === jobTitle);
+    if (!job) {
+      alert('Job not found');
+      return;
+    }
+    setChatApp(app);
+    setChatJob(job);
+  };
+
+  const handleChatComplete = (summary) => {
+    console.log('Chat completed with summary:', summary);
+    // Optionally update applicant data or trigger refresh
   };
 
   // ── Bulk Prescreen ────────────────────────────────────────────────────────
@@ -525,6 +554,7 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
                   score={score}
                   sublabel={app.applied_position || '—'}
                   onNameClick={openModal}
+                  onChatClick={(a) => startPrescreenChat(a, a.applied_position || selectedRole)}
                 />
               ))}
             </div>
@@ -606,6 +636,7 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
                         : `Applied: ${app.applied_position || '—'}`
                     }
                     onNameClick={openModal}
+                    onChatClick={(a) => startPrescreenChat(a, selectedRole)}
                   />
                 );
               })}
@@ -624,6 +655,24 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
             setModalApp(null);
             if (onSelectApplicant) onSelectApplicant(id);
           }}
+          onStartChat={(app) => {
+            setModalApp(null);
+            const jobTitle = app.applied_position || selectedRole;
+            startPrescreenChat(app, jobTitle);
+          }}
+        />
+      )}
+
+      {/* Prescreen Chat */}
+      {chatApp && chatJob && (
+        <PrescreenChat
+          applicant={chatApp}
+          job={chatJob}
+          onClose={() => {
+            setChatApp(null);
+            setChatJob(null);
+          }}
+          onComplete={handleChatComplete}
         />
       )}
 

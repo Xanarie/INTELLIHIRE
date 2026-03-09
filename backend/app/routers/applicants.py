@@ -8,30 +8,17 @@ from typing import Optional
 from app.firebase_client import get_db, doc_to_dict
 from app.cloudinary_client import upload_resume
 from app.schemas import UserResponse, ApplicantStatusUpdate
+from app.utils import job_full_text, has_job_description
 
 router = APIRouter(prefix="/api/applicants", tags=["Applicant Hub"])
 
 
-def _job_full_text(job: dict) -> str:
-    parts = []
-    if job.get("key_responsibilities"):
-        parts.append(f"Responsibilities:\n{job['key_responsibilities']}")
-    if job.get("required_qualifications"):
-        parts.append(f"Required Qualifications:\n{job['required_qualifications']}")
-        parts.append(f"Must Have:\n{job['required_qualifications']}")
-    if job.get("preferred_qualifications"):
-        parts.append(f"Preferred Qualifications:\n{job['preferred_qualifications']}")
-    if job.get("key_competencies"):
-        parts.append(f"Key Competencies:\n{job['key_competencies']}")
-    return "\n\n".join(parts)
+ALLOWED_RESUME_EXTENSIONS = {'.pdf', '.doc', '.docx'}
 
-
-def _has_description(job: dict) -> bool:
-    return any(
-        (job.get(f) or "").strip()
-        for f in ("key_responsibilities", "required_qualifications",
-                  "preferred_qualifications", "key_competencies")
-    )
+def _validate_resume_file(filename: str) -> bool:
+    """Validate resume file type."""
+    ext = os.path.splitext(filename)[1].lower()
+    return ext in ALLOWED_RESUME_EXTENSIONS
 
 
 @router.post("/", response_model=UserResponse)
@@ -54,11 +41,18 @@ async def create_applicant(
 ):
     db = get_db()
 
-    # 1. Duplicate email check
+    # 1. Validate resume file type
+    if not _validate_resume_file(resume.filename):
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid file type. Allowed types: {', '.join(ALLOWED_RESUME_EXTENSIONS)}"
+        )
+
+    # 2. Duplicate email check
     if db.collection("applicants").where("email", "==", email).limit(1).get():
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    # 2. Job limit check
+    # 3. Job limit check
     job_doc  = None
     job_data = None
     jobs_q   = db.collection("jobs").where("title", "==", applied_position).limit(1).get()
@@ -71,13 +65,16 @@ async def create_applicant(
             job_doc.reference.update({"status": "Closed"})
             raise HTTPException(status_code=400, detail="This position is no longer accepting applications")
 
-    # 3. Upload resume to Cloudinary
-    resume_bytes  = await resume.read()
-    upload_result = upload_resume(resume_bytes, resume.filename)
-    download_url  = upload_result["download_url"]
-    public_id     = upload_result["public_id"]
+    # 4. Upload resume to Cloudinary
+    try:
+        resume_bytes  = await resume.read()
+        upload_result = upload_resume(resume_bytes, resume.filename)
+        download_url  = upload_result["download_url"]
+        public_id     = upload_result["public_id"]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload resume: {str(e)}")
 
-    # 4. Save initial Firestore document
+    # 5. Save initial Firestore document
     applicant_data = {
         "f_name": f_name, "l_name": l_name, "email": email, "phone": phone,
         "age": age, "gender": gender, "current_city": current_city,
@@ -96,8 +93,11 @@ async def create_applicant(
     }
     _, new_ref = db.collection("applicants").add(applicant_data)
     applicant_data["id"] = new_ref.id
+    
+    # Store resume text for future use
+    applicant_data["resume_focus_text"] = None
 
-    # 5. AI pipeline (best-effort, never blocks response)
+    # 6. AI pipeline (best-effort, never blocks response)
     try:
         from app.ai.pdf_extract  import extract_resume_text
         from app.ai.resume_score import score_resume_quality
@@ -117,9 +117,10 @@ async def create_applicant(
             os.unlink(tmp_path)
 
         if not resume_focus_text:
+            print("[AI] Could not extract resume text, skipping AI pipeline")
             return applicant_data
 
-        ai_updates = {}
+        ai_updates = {"resume_focus_text": resume_focus_text}
 
         # Resume quality score
         try:
@@ -132,11 +133,11 @@ async def create_applicant(
 
         # Match against applied position + all open jobs in parallel
         open_jobs     = db.collection("jobs").where("status", "==", "Open").get()
-        scoreable_jobs = [doc_to_dict(j) for j in open_jobs if _has_description(doc_to_dict(j))]
+        scoreable_jobs = [doc_to_dict(j) for j in open_jobs if has_job_description(doc_to_dict(j))]
 
         def _score_job(jd):
             try:
-                result = score_applicant(resume_focus_text, _job_full_text(jd))
+                result = score_applicant(resume_focus_text, job_full_text(jd))
                 return jd["title"], result
             except Exception as e:
                 print(f"[AI] Job score failed for '{jd.get('title')}': {e}")
@@ -186,9 +187,15 @@ async def create_applicant(
         if ai_updates:
             new_ref.update(ai_updates)
             applicant_data.update(ai_updates)
+            print(f"[AI] Pipeline completed successfully for applicant {new_ref.id}")
 
     except Exception as e:
         print(f"[AI] Pipeline failed: {e}")
+        # Log the error but don't fail the request
+        try:
+            new_ref.update({"ai_pipeline_error": str(e)})
+        except:
+            pass
 
     return applicant_data
 

@@ -57,17 +57,16 @@ def get_logs(
         direction="DESCENDING",
     )
 
-    # Firestore only supports one inequality filter at a time;
-    # we apply extra filters client-side after fetching.
-    docs = query.limit(limit * 3).get()   # fetch extra to allow client filtering
+    # Apply filters server-side when possible
+    if entity_type:
+        query = query.where("entity_type", "==", entity_type)
+    if action:
+        query = query.where("action", "==", action)
+    
+    docs = query.limit(limit).get()
     logs = [{"id": d.id, **d.to_dict()} for d in docs]
 
-    if entity_type:
-        logs = [l for l in logs if l.get("entity_type") == entity_type]
-    if action:
-        logs = [l for l in logs if l.get("action") == action]
-
-    return logs[:limit]
+    return logs
 
 
 # ── DELETE /api/admin/logs  (clear all — admin convenience) ──────────────────

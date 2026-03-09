@@ -48,18 +48,18 @@ const RecruitmentTab = ({ applicants = [], onSelect, onDelete }) => {
   };
 
   return (
-    <div className="bg-white rounded-[2rem] border-2 border-[#2A5C9A]/20 shadow-xl animate-in fade-in duration-500 h-full flex flex-col overflow-hidden">
-      <div className="flex flex-1 min-h-0 overflow-x-auto">
+    <div className="bg-white rounded-2xl md:rounded-[2rem] border-2 border-[#2A5C9A]/20 shadow-xl animate-in fade-in duration-500 h-full flex flex-col overflow-hidden">
+      <div className="flex flex-1 min-h-0 overflow-x-auto pb-safe">
         {PIPELINE_STAGES.map((stage, index) => (
           <div
             key={stage}
-            className={`flex-1 min-w-[210px] flex flex-col border-r border-slate-100 min-h-0 ${
+            className={`flex-1 min-w-[180px] sm:min-w-[210px] flex flex-col border-r border-slate-100 min-h-0 ${
               index === PIPELINE_STAGES.length - 1 ? 'border-r-0' : ''
             }`}
           >
             {/* Column Header */}
-            <div className="bg-[#E8F0F8] px-4 py-3 border-b-2 border-[#2A5C9A]/20 flex items-center justify-between shrink-0">
-              <h3 className="font-black text-[#2A5C9A] text-[10px] uppercase tracking-wider">
+            <div className="bg-[#E8F0F8] px-3 sm:px-4 py-3 border-b-2 border-[#2A5C9A]/20 flex items-center justify-between shrink-0">
+              <h3 className="font-black text-[#2A5C9A] text-[9px] sm:text-[10px] uppercase tracking-wider">
                 {stage}
               </h3>
               <span className="text-[9px] font-black bg-[#2A5C9A]/10 text-[#2A5C9A] rounded-full px-2 py-0.5">
@@ -68,7 +68,7 @@ const RecruitmentTab = ({ applicants = [], onSelect, onDelete }) => {
             </div>
 
             {/* Cards */}
-            <div className="p-3 space-y-3 bg-slate-50/30 pb-6 flex-1 min-h-0 overflow-y-auto [&::-webkit-scrollbar]:w-[3px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300">
+            <div className="p-2 sm:p-3 space-y-2 sm:space-y-3 bg-slate-50/30 pb-6 flex-1 min-h-0 overflow-y-auto [&::-webkit-scrollbar]:w-[3px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300">
               {groupedApplicants[stage].map((app) => {
                 const targetId = app.id || app.applicantid || app.applicant_id;
                 const matchScore = getMatchScore(app);
@@ -78,7 +78,7 @@ const RecruitmentTab = ({ applicants = [], onSelect, onDelete }) => {
                   <div
                     key={targetId}
                     onClick={() => onSelect(targetId)}
-                    className="p-4 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md hover:border-[#2A5C9A]/40 transition-all cursor-pointer group"
+                    className="p-3 sm:p-4 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md hover:border-[#2A5C9A]/40 transition-all cursor-pointer group"
                   >
                     {/* Name row */}
                     <div className="flex justify-between items-start mb-2">

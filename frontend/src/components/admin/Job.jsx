@@ -63,7 +63,7 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate, 
     <div className="space-y-6 animate-in fade-in duration-500">
 
       {/* TABS NAVIGATION */}
-      <div className="flex gap-8 border-b border-slate-100">
+      <div className="flex gap-4 md:gap-8 border-b border-slate-100 overflow-x-auto">
         {TABS.map(tab => {
           const key    = tab.toLowerCase().replace(' ', '_');
           const active = activeView === key;
@@ -71,7 +71,7 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate, 
             <button
               key={tab}
               onClick={() => setActiveView(key)}
-              className={`pb-4 text-sm font-bold transition-all relative ${active ? '' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`pb-3 md:pb-4 text-xs md:text-sm font-bold transition-all relative whitespace-nowrap ${active ? '' : 'text-slate-400 hover:text-slate-600'}`}
               style={active ? { color: NAVY } : {}}
             >
               {tab}
@@ -83,7 +83,7 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate, 
 
       {/* STATUS VIEW */}
       {activeView === 'status' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
           {['Draft', 'Open', 'Closed'].map(status => (
             <div key={status} className="flex flex-col gap-4">
               <h3 className="text-center font-black text-lg uppercase tracking-widest mb-2" style={{ color: NAVY }}>
@@ -146,52 +146,54 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate, 
 
       {/* DEPARTMENT VIEW */}
       {activeView === 'department' && (
-        <div className="bg-white rounded-[2rem] border-2 shadow-xl overflow-hidden" style={{ borderColor: `${NAVY}1A` }}>
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="text-[10px] font-black uppercase tracking-widest" style={{ background: TEAL_LIGHT, color: NAVY }}>
-                <th className="px-8 py-5 border-r border-slate-100">Job Title</th>
-                <th className="px-8 py-5 border-r border-slate-100">Department</th>
-                <th className="px-8 py-5 border-r border-slate-100">Status</th>
-                <th className="px-8 py-5 border-r border-slate-100">Applicants / Limit</th>
-                <th className="px-8 py-5 border-r border-slate-100">JD</th>
-                <th className="px-8 py-5">Date Posted</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {jobs.map(job => {
-                const count   = getApplicantCount(job.title);
-                const limit   = job.applicant_limit || 50;
-                const jdAdded = hasJobDescription(job);
-                const dateStr = job.created_at
-                  ? new Date(job.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
-                  : '—';
-                return (
-                  <tr key={job.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer group" onClick={() => onEdit(job)}>
-                    <td className="px-8 py-5">
-                      <span className="font-bold text-slate-700 text-sm group-hover:text-[#1A3C6E] transition-colors">{job.title}</span>
-                    </td>
-                    <td className="px-8 py-5">
-                      <span className="bg-slate-100 text-slate-500 text-[10px] font-black px-3 py-1 rounded-full uppercase">{job.department || '—'}</span>
-                    </td>
-                    <td className="px-8 py-5">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${job.status === 'Open' ? 'bg-emerald-500' : job.status === 'Closed' ? 'bg-rose-400' : 'bg-slate-300'}`} />
-                        <span className="text-xs font-bold text-slate-600">{job.status}</span>
-                      </div>
-                    </td>
-                    <td className="px-8 py-5 text-sm text-slate-600 font-medium">{count} / {limit}</td>
-                    <td className="px-8 py-5">
-                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${jdAdded ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                        {jdAdded ? '✓ Added' : 'Missing'}
-                      </span>
-                    </td>
-                    <td className="px-8 py-5 text-xs text-slate-400">{dateStr}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="bg-white rounded-2xl md:rounded-[2rem] border-2 shadow-xl overflow-hidden" style={{ borderColor: `${NAVY}1A` }}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[800px]">
+              <thead>
+                <tr className="text-[10px] font-black uppercase tracking-widest" style={{ background: TEAL_LIGHT, color: NAVY }}>
+                  <th className="px-4 md:px-8 py-4 md:py-5 border-r border-slate-100">Job Title</th>
+                  <th className="px-4 md:px-8 py-4 md:py-5 border-r border-slate-100">Department</th>
+                  <th className="px-4 md:px-8 py-4 md:py-5 border-r border-slate-100">Status</th>
+                  <th className="px-4 md:px-8 py-4 md:py-5 border-r border-slate-100">Applicants / Limit</th>
+                  <th className="px-4 md:px-8 py-4 md:py-5 border-r border-slate-100">JD</th>
+                  <th className="px-4 md:px-8 py-4 md:py-5">Date Posted</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {jobs.map(job => {
+                  const count   = getApplicantCount(job.title);
+                  const limit   = job.applicant_limit || 50;
+                  const jdAdded = hasJobDescription(job);
+                  const dateStr = job.created_at
+                    ? new Date(job.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
+                    : '—';
+                  return (
+                    <tr key={job.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer group" onClick={() => onEdit(job)}>
+                      <td className="px-4 md:px-8 py-4 md:py-5">
+                        <span className="font-bold text-slate-700 text-sm group-hover:text-[#1A3C6E] transition-colors">{job.title}</span>
+                      </td>
+                      <td className="px-4 md:px-8 py-4 md:py-5">
+                        <span className="bg-slate-100 text-slate-500 text-[10px] font-black px-3 py-1 rounded-full uppercase">{job.department || '—'}</span>
+                      </td>
+                      <td className="px-4 md:px-8 py-4 md:py-5">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${job.status === 'Open' ? 'bg-emerald-500' : job.status === 'Closed' ? 'bg-rose-400' : 'bg-slate-300'}`} />
+                          <span className="text-xs font-bold text-slate-600">{job.status}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 md:px-8 py-4 md:py-5 text-sm text-slate-600 font-medium">{count} / {limit}</td>
+                      <td className="px-4 md:px-8 py-4 md:py-5">
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${jdAdded ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                          {jdAdded ? '✓ Added' : 'Missing'}
+                        </span>
+                      </td>
+                      <td className="px-4 md:px-8 py-4 md:py-5 text-xs text-slate-400">{dateStr}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -200,9 +202,9 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate, 
         <div className="space-y-4">
 
           {/* Header + job selector */}
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: TEAL_LIGHT }}>
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: TEAL_LIGHT }}>
                 <Trophy size={16} style={{ color: NAVY }} />
               </div>
               <div>
@@ -217,7 +219,7 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate, 
               <select
                 value={shortlistJobId || selectedJob?.id || ''}
                 onChange={e => setShortlistJobId(e.target.value)}
-                className="text-xs font-bold rounded-xl border-2 border-slate-200 px-4 py-2.5 outline-none transition-colors shrink-0"
+                className="text-xs font-bold rounded-xl border-2 border-slate-200 px-4 py-2.5 outline-none transition-colors shrink-0 w-full sm:w-auto"
                 style={{ color: NAVY, minWidth: 180 }}
                 onFocus={e => { e.target.style.borderColor = TEAL; }}
                 onBlur={e  => { e.target.style.borderColor = '#e2e8f0'; }}
@@ -248,8 +250,8 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate, 
 
           ) : (
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              {/* Column headers */}
-              <div className="flex items-center gap-5 px-6 py-3 border-b border-slate-50 bg-slate-50">
+              {/* Column headers - hide on mobile */}
+              <div className="hidden md:flex items-center gap-5 px-6 py-3 border-b border-slate-50 bg-slate-50">
                 <div className="w-8 shrink-0" />
                 <div className="w-9 shrink-0" />
                 <p className="flex-1 text-[10px] font-black text-slate-400 uppercase tracking-widest">Candidate</p>
@@ -267,60 +269,69 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate, 
                 return (
                   <div
                     key={app.id}
-                    className="flex items-center gap-5 px-6 py-4 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors"
+                    className="flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-5 px-4 md:px-6 py-4 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors"
                   >
-                    {/* Rank badge */}
-                    <div
-                      className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black shrink-0"
-                      style={isTop3 ? { background: NAVY, color: '#fff' } : { background: '#f1f5f9', color: '#94a3b8' }}
-                    >
-                      {i + 1}
-                    </div>
-
-                    {/* Avatar */}
-                    <div
-                      className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-black shrink-0"
-                      style={{ background: TEAL }}
-                    >
-                      {name.charAt(0).toUpperCase()}
-                    </div>
-
-                    {/* Clickable name → opens candidate modal */}
-                    <div className="flex-1 min-w-0">
-                      <button
-                        onClick={() => onSelectApplicant?.(app.id)}
-                        className="text-sm font-bold text-left truncate block max-w-full hover:underline underline-offset-2 transition-colors"
-                        style={{ color: NAVY }}
+                    {/* Mobile: Rank + Avatar + Name in one row */}
+                    <div className="flex items-center gap-3 w-full md:w-auto">
+                      {/* Rank badge */}
+                      <div
+                        className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black shrink-0"
+                        style={isTop3 ? { background: NAVY, color: '#fff' } : { background: '#f1f5f9', color: '#94a3b8' }}
                       >
-                        {name}
-                      </button>
-                      <p className="text-[10px] text-slate-400 truncate">{app.email || '—'}</p>
-                    </div>
+                        {i + 1}
+                      </div>
 
-                    {/* Bucket pill */}
-                    <div className="w-20 flex justify-center">
-                      <span
-                        className="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border"
-                        style={
-                          bucket === 'Strong'
-                            ? { background: '#ecfdf5', color: '#059669', borderColor: '#a7f3d0' }
-                            : { background: '#eff6ff', color: '#2563eb', borderColor: '#bfdbfe' }
-                        }
+                      {/* Avatar */}
+                      <div
+                        className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-black shrink-0"
+                        style={{ background: TEAL }}
                       >
-                        {bucket}
-                      </span>
+                        {name.charAt(0).toUpperCase()}
+                      </div>
+
+                      {/* Clickable name → opens candidate modal */}
+                      <div className="flex-1 min-w-0">
+                        <button
+                          onClick={() => onSelectApplicant?.(app.id)}
+                          className="text-sm font-bold text-left truncate block max-w-full hover:underline underline-offset-2 transition-colors"
+                          style={{ color: NAVY }}
+                        >
+                          {name}
+                        </button>
+                        <p className="text-[10px] text-slate-400 truncate">{app.email || '—'}</p>
+                      </div>
+
+                      {/* Top-3 star - mobile */}
+                      {isTop3 && <Star size={14} className="text-amber-400 shrink-0 md:hidden" fill="currentColor" />}
                     </div>
 
-                    {/* Score */}
-                    <div className={`w-16 text-sm font-black text-center px-2 py-1 rounded-xl border ${scoreBg(score)}`}>
-                      {score}%
-                    </div>
+                    {/* Mobile: Bucket + Score in second row */}
+                    <div className="flex items-center gap-3 w-full md:w-auto md:ml-auto">
+                      {/* Bucket pill */}
+                      <div className="flex-1 md:flex-none md:w-20 flex justify-start md:justify-center">
+                        <span
+                          className="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border"
+                          style={
+                            bucket === 'Strong'
+                              ? { background: '#ecfdf5', color: '#059669', borderColor: '#a7f3d0' }
+                              : { background: '#eff6ff', color: '#2563eb', borderColor: '#bfdbfe' }
+                          }
+                        >
+                          {bucket}
+                        </span>
+                      </div>
 
-                    {/* Top-3 star */}
-                    {isTop3
-                      ? <Star size={14} className="text-amber-400 shrink-0" fill="currentColor" />
-                      : <div className="w-[14px] shrink-0" />
-                    }
+                      {/* Score */}
+                      <div className={`w-16 text-sm font-black text-center px-2 py-1 rounded-xl border ${scoreBg(score)}`}>
+                        {score}%
+                      </div>
+
+                      {/* Top-3 star - desktop */}
+                      {isTop3
+                        ? <Star size={14} className="text-amber-400 shrink-0 hidden md:block" fill="currentColor" />
+                        : <div className="w-[14px] shrink-0 hidden md:block" />
+                      }
+                    </div>
                   </div>
                 );
               })}

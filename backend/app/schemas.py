@@ -22,6 +22,7 @@ class UserResponse(BaseModel):
     applied_position: Optional[str] = None
     resume_path: Optional[str] = None
     resume_storage_path: Optional[str] = None
+    resume_focus_text: Optional[str] = None  # Extracted text for AI processing
     hiring_status: Optional[str] = "Pre-screening"
     ai_prescreening_summary: Optional[str] = None
     ai_match_json: Optional[Any] = None
@@ -31,6 +32,8 @@ class UserResponse(BaseModel):
     ai_job_match_score: Optional[float] = None
     ai_job_match_bucket: Optional[str] = None
     ai_job_match_json: Optional[Any] = None
+    ai_recommended_role: Optional[str] = None
+    recruiter_notes: Optional[str] = None
 
     class Config:
         from_attributes = True

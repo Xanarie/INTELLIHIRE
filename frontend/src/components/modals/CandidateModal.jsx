@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { X, Mail, Phone, MapPin, Briefcase, Sparkles, ArrowRight, User, Star, FileText } from 'lucide-react';
+import { X, Mail, Phone, MapPin, Briefcase, Sparkles, ArrowRight, User, Star, FileText, MessageCircle } from 'lucide-react';
 
 const STAGE_BADGE = {
   'pre-screening': 'bg-blue-50 text-blue-600 border border-blue-100',
@@ -50,7 +50,7 @@ const InfoRow = ({ icon: Icon, value }) => value ? (
   </div>
 ) : null;
 
-const CandidateModal = ({ app, onClose, onViewFull }) => {
+const CandidateModal = ({ app, onClose, onViewFull, onStartChat }) => {
   useEffect(() => {
     const h = (e) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', h);
@@ -208,6 +208,15 @@ const CandidateModal = ({ app, onClose, onViewFull }) => {
           >
             Close
           </button>
+          {onStartChat && (
+            <button
+              onClick={() => { onClose(); onStartChat(app); }}
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-[#00AECC] to-[#1A3C6E] hover:from-[#0098b3] hover:to-[#152f5a] text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-[#00AECC]/20"
+            >
+              <MessageCircle size={13} />
+              Start Chat
+            </button>
+          )}
           <button
             onClick={() => { onClose(); onViewFull(app.id); }}
             className="flex-1 flex items-center justify-center gap-2 py-3 bg-[#2A5C9A] hover:bg-[#1e4470] text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-[#2A5C9A]/20"

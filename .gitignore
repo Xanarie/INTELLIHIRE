@@ -11,6 +11,7 @@ __pycache__/
 backend/serviceAccountKey.json
 serviceAccountKey.json
 *.json.key
+**/serviceAccountKey.json
 
 # Node/React (Frontend)
 node_modules/
