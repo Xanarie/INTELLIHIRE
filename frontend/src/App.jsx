@@ -3,6 +3,7 @@ import ApplicantHub from './components/ApplicantHub';
 import AdminHub from './components/AdminHub';
 import JobPostingPage from './components/pages/JobPostingPage';
 import Login from './components/AdminLogin';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 
 function App() {

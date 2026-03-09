@@ -1,6 +1,10 @@
+fastapi==0.116.1
 firebase-admin==6.5.0
 cloudinary==1.40.0
 requests==2.31.0
+python-multipart==0.0.20
+pymupdf==1.26.4
+
 
 fastapi
 uvicorn
