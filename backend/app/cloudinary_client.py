@@ -1,17 +1,6 @@
-# Handles all resume uploads/deletes via Cloudinary.
-# Resumes are stored as raw files (PDF/DOCX) — no transformations needed.
-#
-# Required .env variables:
-#   CLOUDINARY_CLOUD_NAME
-#   CLOUDINARY_API_KEY
-#   CLOUDINARY_API_SECRET
-
 import os
 import cloudinary
 import cloudinary.uploader
-from dotenv import load_dotenv
-
-load_dotenv()
 
 _configured = False
 
