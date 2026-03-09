@@ -1,9 +1,8 @@
-// frontend/src/components/admin/Onboarding.jsx
 import React, { useState, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { CheckSquare, Square, UserCheck, XCircle, Building2, Briefcase, AlertTriangle } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8000/api/admin';
+import { api } from '../config/api';
 const NAVY = '#1A3C6E';
 const TEAL = '#00AECC';
 const TEAL_LIGHT = '#E6F7FB';
@@ -94,7 +93,7 @@ const CandidateCard = ({ person, onStatusChange, onNotify }) => {
     try {
       setLoading(true);
       const newStatus = confirm === 'onboard' ? 'Archived' : 'Rejected';
-      await axios.patch(`${API_BASE}/applicants/${id}`, { hiring_status: newStatus });
+      await axios.patch(`${api}/applicants/${id}`, { hiring_status: newStatus });
       if (onNotify) {
         const msg = newStatus === 'Archived'
           ? `fully onboarded ${name}`

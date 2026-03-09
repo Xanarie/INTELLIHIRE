@@ -1,4 +1,3 @@
-// frontend/src/components/ApplicantHub.jsx
 import React, { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import axios from "axios";
@@ -16,7 +15,7 @@ import {
   ChevronRight, Pencil, Loader2,
 } from "lucide-react";
 
-const API_BASE_URL = "http://localhost:8000";
+import { api } from '../config/api';
 
 // ── Dropdown option lists ─────────────────────────────────────────────────────
 const EDUCATION_OPTIONS = [
@@ -95,7 +94,7 @@ const ApplicantHub = () => {
   });
 
   useEffect(() => {
-    axios.get(`${API_BASE_URL}/api/applicants/jobs`)
+    axios.get(`${api}/api/applicants/jobs`)
       .then(r => setAvailableJobs(r.data))
       .catch(console.error);
   }, []);
@@ -114,7 +113,7 @@ const ApplicantHub = () => {
     const data = new FormData();
     Object.entries(formData).forEach(([k, v]) => { if (v !== null) data.append(k, v); });
     try {
-      await axios.post(`${API_BASE_URL}/api/applicants/`, data, {
+      await axios.post(`${api}/api/applicants/`, data, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setStep(5);

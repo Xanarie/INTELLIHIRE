@@ -5,6 +5,8 @@ import {
   Phone, FileText, Loader2, AlertTriangle, Copy,
 } from "lucide-react";
 
+import { api, API_PUBLIC } from '../config/api';
+
 import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -399,8 +401,7 @@ const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap =
   };
 
   const handleViewResume = () => {
-    const base = import.meta.env.VITE_API_URL?.replace('/api/admin', '') ?? 'http://localhost:8000';
-    window.open(`${base}/api/admin/applicants/${applicantId}/resume`, "_blank");
+    window.open(`${API_PUBLIC}/api/admin/applicants/${applicantId}/resume`, "_blank");
   };
 
   if (loading) return <div className="p-8 text-center text-slate-500">Loading candidate…</div>;

@@ -7,7 +7,7 @@ import {
   Lightbulb, FileText, ChevronRight, Loader2, AlertCircle, Info,
 } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8000/api/admin';
+import { api } from '../config/api';
 
 // ProgressPro brand
 const NAVY = '#1A3C6E';
@@ -57,7 +57,7 @@ const JobPostingPage = () => {
   const [error,   setError]   = useState(null);
 
   useEffect(() => {
-    axios.get(`${API_BASE}/jobs/${jobId}`)
+    axios.get(`${api}/jobs/${jobId}`)
       .then(r => { setJob(r.data); setLoading(false); })
       .catch(() => { setError('This job posting could not be found.'); setLoading(false); });
   }, [jobId]);

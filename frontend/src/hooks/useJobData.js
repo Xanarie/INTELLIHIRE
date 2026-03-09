@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
-const API_BASE = 'http://localhost:8000/api/admin';
+import { api } from '../config/api';
 
 const extractErrMessage = (err, fallback) => {
   const data = err?.response?.data;
@@ -21,7 +21,7 @@ export const useJobData = () => {
   const fetchJobs = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API_BASE}/jobs`);
+      const res = await axios.get(`${api}/jobs`);
       setJobs(res.data || []);
     } catch (err) {
       console.error('Failed to fetch jobs', err?.response?.data ?? err);
@@ -47,12 +47,12 @@ export const useJobData = () => {
       };
 
       if (jobId) {
-        const res = await axios.put(`${API_BASE}/jobs/${jobId}`, payload);
+        const res = await axios.put(`${api}/jobs/${jobId}`, payload);
         const saved = res.data;
         setJobs(prev => prev.map(j => (j.id === jobId ? { ...j, ...saved } : j)));
         return { ok: true, message: 'Job updated successfully.', job: saved };
       } else {
-        const res = await axios.post(`${API_BASE}/jobs`, payload);
+        const res = await axios.post(`${api}/jobs`, payload);
         const saved = res.data;
         setJobs(prev => [saved, ...prev]);
         return { ok: true, message: 'Job created successfully.', job: saved };
@@ -67,7 +67,7 @@ export const useJobData = () => {
   const handleDeleteJob = useCallback(async (id) => {
     if (!window.confirm('Delete permanently?')) return { ok: false, message: 'Cancelled.' };
     try {
-      await axios.delete(`${API_BASE}/jobs/${id}`);
+      await axios.delete(`${api}/jobs/${id}`);
       setJobs(prev => prev.filter(j => j.id !== id));
       return { ok: true, message: 'Job deleted.' };
     } catch (err) {

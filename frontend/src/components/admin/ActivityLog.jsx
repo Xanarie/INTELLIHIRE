@@ -1,4 +1,3 @@
-// frontend/src/components/admin/ActivityLog.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
@@ -6,7 +5,7 @@ import {
   Cpu, Filter, ChevronDown, RotateCcw,
 } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8000/api/admin';
+import { api } from '../config/api';
 
 const NAVY       = '#1A3C6E';
 const TEAL       = '#00AECC';
@@ -102,7 +101,7 @@ const LogRow = ({ log, onRefresh }) => {
     const prevStatus = parsePrevStatus(log.details);
     try {
       setUnarchiving(true);
-      await axios.patch(`${API_BASE}/applicants/${log.entity_id}`, { hiring_status: prevStatus });
+      await axios.patch(`${api}/applicants/${log.entity_id}`, { hiring_status: prevStatus });
       onRefresh?.();
     } catch (err) {
       console.error('Unarchive failed:', err);
@@ -215,7 +214,7 @@ const ActivityLog = () => {
       const params = new URLSearchParams({ limit: '200' });
       if (entityFilter) params.set('entity_type', entityFilter);
       if (actionFilter) params.set('action',      actionFilter);
-      const res = await axios.get(`${API_BASE}/logs?${params}`);
+      const res = await axios.get(`${api}/logs?${params}`);
       setLogs(res.data || []);
     } catch (err) {
       console.error('Failed to fetch activity logs', err);
@@ -230,7 +229,7 @@ const ActivityLog = () => {
     if (!window.confirm('Clear all activity logs? This cannot be undone.')) return;
     try {
       setClearing(true);
-      await axios.delete(`${API_BASE}/logs`);
+      await axios.delete(`${api}/logs`);
       setLogs([]);
     } catch (err) {
       console.error('Failed to clear logs', err);
