@@ -33,6 +33,12 @@ def _has_description(job: dict) -> bool:
                   "preferred_qualifications", "key_competencies")
     )
 
+@router.get("/jobs")
+def get_open_jobs():
+    """Public endpoint — returns only Open jobs for the applicant portal dropdown."""
+    db   = get_db()
+    docs = db.collection("jobs").where("status", "==", "Open").get()
+    return [{"id": d.id, "title": d.to_dict().get("title", "")} for d in docs]
 
 @router.post("/", response_model=UserResponse)
 async def create_applicant(
