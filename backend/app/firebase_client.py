@@ -1,6 +1,5 @@
 # backend/app/firebase_client.py
 import os
-import json
 import firebase_admin
 from firebase_admin import credentials, firestore
 
@@ -12,11 +11,17 @@ def _init():
     if _app is not None:
         return
 
-    key_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_KEY")
-    if not key_json:
-        raise RuntimeError("FIREBASE_SERVICE_ACCOUNT_KEY env var is not set")
-
-    cred = credentials.Certificate(json.loads(key_json))
+    cred = credentials.Certificate({
+        "type": "service_account",
+        "project_id":                os.getenv("FIREBASE_PROJECT_ID"),
+        "private_key_id":            os.getenv("FIREBASE_PRIVATE_KEY_ID"),
+        "private_key":               os.getenv("FIREBASE_PRIVATE_KEY", "").replace("\\n", "\n"),
+        "client_email":              os.getenv("FIREBASE_CLIENT_EMAIL"),
+        "client_id":                 os.getenv("FIREBASE_CLIENT_ID"),
+        "auth_uri":                  "https://accounts.google.com/o/oauth2/auth",
+        "token_uri":                 "https://oauth2.googleapis.com/token",
+        "client_x509_cert_url":      os.getenv("FIREBASE_CLIENT_CERT_URL"),
+    })
 
     if not firebase_admin._apps:
         _app = firebase_admin.initialize_app(cred)
