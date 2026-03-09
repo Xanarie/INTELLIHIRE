@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from firebase_admin import auth as firebase_auth
-from app.firebase_client import get_db  # this triggers _init() which sets up Firebase
 
 router = APIRouter()
 
@@ -11,7 +10,6 @@ class LoginRequest(BaseModel):
 
 @router.post("/login")
 def login(user: LoginRequest):
-    get_db()  # ensures Firebase Admin is initialized
     try:
         firebase_user = firebase_auth.get_user_by_email(user.email)
         return {"message": f"User {firebase_user.email} exists"}

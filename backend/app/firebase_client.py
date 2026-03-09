@@ -1,10 +1,8 @@
+# backend/app/firebase_client.py
 import os
 import json
 import firebase_admin
 from firebase_admin import credentials, firestore
-from dotenv import load_dotenv
-
-load_dotenv()
 
 _app = None
 _db  = None
@@ -14,19 +12,11 @@ def _init():
     if _app is not None:
         return
 
-    service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT")
-    cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH")
+    key_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_KEY")
+    if not key_json:
+        raise RuntimeError("FIREBASE_SERVICE_ACCOUNT_KEY env var is not set")
 
-    if service_account_json:
-        # Production (Vercel): credentials stored as JSON string in env var
-        cred = credentials.Certificate(json.loads(service_account_json))
-    elif cred_path:
-        # Local development: credentials stored as a file path
-        cred = credentials.Certificate(cred_path)
-    else:
-        raise RuntimeError(
-            "No Firebase credentials found. Set FIREBASE_SERVICE_ACCOUNT or FIREBASE_CREDENTIALS_PATH."
-        )
+    cred = credentials.Certificate(json.loads(key_json))
 
     if not firebase_admin._apps:
         _app = firebase_admin.initialize_app(cred)
