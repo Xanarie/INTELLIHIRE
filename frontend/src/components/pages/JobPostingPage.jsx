@@ -7,7 +7,7 @@ import {
   Lightbulb, FileText, ChevronRight, Loader2, AlertCircle, Info,
 } from 'lucide-react';
 
-import { api } from '../config/api';
+import { api } from '../../config/api';
 
 // ProgressPro brand
 const NAVY = '#1A3C6E';

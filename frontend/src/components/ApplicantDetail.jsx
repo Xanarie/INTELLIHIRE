@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { api } from '../config/api';
+import { api, API_PUBLIC } from '../config/api';
 import {
   X, Mail, Briefcase, User, Send, Sparkles, ChevronRight,
   Phone, FileText, Loader2, AlertTriangle, Copy,
 } from "lucide-react";
-
-import { api, API_PUBLIC } from '../config/api';
 
 import { Button } from "@/components/ui/button";
 import {

@@ -5,7 +5,7 @@ import {
   Cpu, Filter, ChevronDown, RotateCcw,
 } from 'lucide-react';
 
-import { api } from '../config/api';
+import { api } from '../../config/api';
 
 const NAVY       = '#1A3C6E';
 const TEAL       = '#00AECC';

@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { CheckSquare, Square, UserCheck, XCircle, Building2, Briefcase, AlertTriangle } from 'lucide-react';
 
-import { api } from '../config/api';
+import { api } from '../../config/api';
 const NAVY = '#1A3C6E';
 const TEAL = '#00AECC';
 const TEAL_LIGHT = '#E6F7FB';
