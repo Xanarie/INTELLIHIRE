@@ -48,7 +48,7 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate, 
       .slice(0, 10);
   }, [applicants, selectedJob]);
 
-  const TABS = ['Status', 'Department', 'Short List'];
+  const TABS = ['Status', 'Short List'];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -154,44 +154,6 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate, 
                   })}
                 </tbody>
               </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* DEPARTMENT VIEW */}
-      {activeView === 'department' && (
-        <div className="space-y-4">
-          {Object.entries(
-            jobs.reduce((acc, j) => {
-              const dept = j.department || 'General';
-              if (!acc[dept]) acc[dept] = [];
-              acc[dept].push(j);
-              return acc;
-            }, {})
-          ).map(([dept, deptJobs]) => (
-            <div key={dept}>
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">{dept}</p>
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                {deptJobs.map((job, i) => (
-                  <div key={job.id} className={`flex items-center gap-5 px-6 py-4 ${i < deptJobs.length - 1 ? 'border-b border-slate-50' : ''} hover:bg-slate-50/50 transition-colors`}>
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: TEAL_LIGHT }}>
-                      <Briefcase size={14} style={{ color: NAVY }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-slate-800">{job.title}</p>
-                      <p className="text-[10px] text-slate-400">{getApplicantCount(job.title)} applicants · {job.status}</p>
-                    </div>
-                    <button onClick={() => onEdit(job)} className="text-xs font-bold hover:opacity-70 transition-opacity" style={{ color: TEAL }}>Edit</button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-          {jobs.length === 0 && (
-            <div className="bg-white rounded-2xl border border-slate-100 py-16 flex flex-col items-center justify-center gap-3">
-              <FileText size={28} className="text-slate-200" />
-              <p className="text-sm font-bold text-slate-400">No jobs yet</p>
             </div>
           )}
         </div>

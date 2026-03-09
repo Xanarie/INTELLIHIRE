@@ -1,6 +1,5 @@
-// frontend/src/components/ApplicantDetail.jsx
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import { api } from '../config/api';
 import {
   X, Mail, Briefcase, User, Send, Sparkles, ChevronRight,
   Phone, FileText, Loader2, AlertTriangle, Copy,
@@ -15,14 +14,10 @@ import { Separator } from "@/components/ui/separator";
 import ReactMarkdown from "react-markdown";
 import { getFlags } from "../utils/flagUtils";
 
-const API_BASE_URL = "https://intellihire-api.onrender.com/api/admin/jobs";
-
 const HIRING_STAGES = ["Pre-screening", "Screening", "Interview", "Offer", "Accepted", "Rejected"];
 
-// ── ProgressPro brand ─────────────────────────────────────────────────────────
-const NAVY      = "#1A3C6E";
-const NAVY_DARK = "#0D2645";
-const TEAL      = "#00AECC";
+const NAVY       = "#1A3C6E";
+const TEAL       = "#00AECC";
 const TEAL_LIGHT = "#E6F7FB";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -41,7 +36,7 @@ function getMatchColor(bucket) {
   if (bucket === "Moderately Qualified") return "text-teal-600";
   if (bucket === "Qualified")            return "text-blue-600";
   if (bucket === "For Review")           return "text-amber-600";
-  if (bucket === "Needs Review")         return "text-amber-600"; // legacy
+  if (bucket === "Needs Review")         return "text-amber-600";
   return "text-rose-500";
 }
 
@@ -57,9 +52,10 @@ function getBucketBadge(bucket) {
   if (bucket === "Moderately Qualified") return "bg-teal-50 text-teal-700 border-teal-200";
   if (bucket === "Qualified")            return "bg-blue-50 text-blue-700 border-blue-200";
   if (bucket === "For Review")           return "bg-amber-50 text-amber-700 border-amber-200";
-  if (bucket === "Needs Review")         return "bg-amber-50 text-amber-700 border-amber-200"; // legacy
+  if (bucket === "Needs Review")         return "bg-amber-50 text-amber-700 border-amber-200";
   return "bg-rose-50 text-rose-600 border-rose-200";
 }
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 const DetailItem = ({ label, value, icon }) => (
@@ -112,7 +108,7 @@ const RoleSuggestions = ({ applicantId }) => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await axios.get(`${API_BASE_URL}/applicants/${applicantId}/role-suggestions`);
+        const res = await api.get(`/applicants/${applicantId}/role-suggestions`);
         if (!cancelled) setSuggestions(res.data.suggestions || []);
       } catch {
         if (!cancelled) setError("Could not load role suggestions.");
@@ -184,7 +180,6 @@ const BreakdownModal = ({ applicant, onClose }) => {
         className="bg-white rounded-3xl w-full max-w-lg shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 max-h-[88vh]"
         onClick={e => e.stopPropagation()}
       >
-        {/* Modal header */}
         <div
           className="flex items-center justify-between px-7 pt-5 pb-4 shrink-0 text-white"
           style={{ background: `linear-gradient(135deg, ${NAVY} 0%, ${TEAL} 100%)` }}
@@ -199,7 +194,6 @@ const BreakdownModal = ({ applicant, onClose }) => {
         </div>
 
         <div className="overflow-y-auto px-7 py-5 space-y-6">
-          {/* Resume Quality */}
           {resume && (
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
@@ -214,7 +208,6 @@ const BreakdownModal = ({ applicant, onClose }) => {
             </div>
           )}
 
-          {/* Job Match */}
           {match ? (
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
@@ -255,7 +248,6 @@ const BreakdownModal = ({ applicant, onClose }) => {
             </div>
           )}
 
-          {/* Role Suggestions */}
           <div>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Role Fit Across All Open Positions</p>
             <p className="text-[10px] text-slate-400 mb-3">Ranked by resume match against each open job description.</p>
@@ -331,37 +323,42 @@ const AIMatchInsights = ({ applicant, topRole }) => {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-  const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap = new Map() }) => {
-    const [applicant,         setApplicant]         = useState(null);
-    const [loading,           setLoading]           = useState(true);
-    const [saving,            setSaving]            = useState(false);
-    const [selectedStatus,    setSelectedStatus]    = useState("");
-    const [rerunning,         setRerunning]         = useState(false);
-    const [topRole,           setTopRole]           = useState(null);
-    const [recruiterNotes,    setRecruiterNotes]    = useState("");
-    const [endorsedPosition,  setEndorsedPosition]  = useState("");
-    const [savingNotes,       setSavingNotes]       = useState(false);
-    const [notesSaved,        setNotesSaved]        = useState(false);
+const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap = new Map() }) => {
+  const [applicant,        setApplicant]        = useState(null);
+  const [loading,          setLoading]          = useState(true);
+  const [error,            setError]            = useState(false); // ← was missing
+  const [saving,           setSaving]           = useState(false);
+  const [selectedStatus,   setSelectedStatus]   = useState("");
+  const [rerunning,        setRerunning]        = useState(false);
+  const [topRole,          setTopRole]          = useState(null);
+  const [recruiterNotes,   setRecruiterNotes]   = useState("");
+  const [endorsedPosition, setEndorsedPosition] = useState("");
+  const [savingNotes,      setSavingNotes]      = useState(false);
+  const [notesSaved,       setNotesSaved]       = useState(false);
 
   const fetchApplicant = async () => {
     if (!applicantId) return;
     setLoading(true);
     try {
-      const res = await axios.get(`${API_BASE_URL}/applicants/${applicantId}`);
+      setError(false); // ← inside try, safe to call now
+      const res = await api.get(`/applicants/${applicantId}`);
       setApplicant(res.data);
       setSelectedStatus(res.data.hiring_status || "Pre-screening");
       setRecruiterNotes(res.data.recruiter_notes || "");
       setEndorsedPosition(res.data.endorsed_position || "");
+
       const rec = res.data.ai_recommended_role;
       if (rec) {
         setTopRole({ title: rec, score: null, bucket: null });
       } else {
-        axios.get(`${API_BASE_URL}/applicants/${applicantId}/role-suggestions`)
+        // Non-blocking — role suggestions are optional
+        api.get(`/applicants/${applicantId}/role-suggestions`)
           .then(r => { const s = r.data.suggestions || []; if (s.length > 0) setTopRole(s[0]); })
           .catch(() => {});
       }
     } catch (err) {
-      console.error(err);
+      console.error('fetchApplicant failed:', err);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -372,7 +369,7 @@ const AIMatchInsights = ({ applicant, topRole }) => {
   const handleSaveNotes = async () => {
     try {
       setSavingNotes(true); setNotesSaved(false);
-      await axios.patch(`${API_BASE_URL}/applicants/${applicantId}/notes`, {
+      await api.patch(`/applicants/${applicantId}/notes`, {
         recruiter_notes:   recruiterNotes,
         endorsed_position: endorsedPosition,
       });
@@ -385,7 +382,7 @@ const AIMatchInsights = ({ applicant, topRole }) => {
   const handleConfirmMove = async () => {
     try {
       setSaving(true);
-      await axios.patch(`${API_BASE_URL}/applicants/${applicantId}`, { hiring_status: selectedStatus });
+      await api.patch(`/applicants/${applicantId}`, { hiring_status: selectedStatus });
       await onRefresh();
       setApplicant(prev => ({ ...prev, hiring_status: selectedStatus }));
     } catch (err) { console.error(err); }
@@ -395,15 +392,30 @@ const AIMatchInsights = ({ applicant, topRole }) => {
   const handleRunPrescreen = async () => {
     try {
       setRerunning(true);
-      await axios.post(`${API_BASE_URL}/applicants/${applicantId}/prescreen`);
+      await api.post(`/applicants/${applicantId}/prescreen`);
       await fetchApplicant();
     } catch (err) { console.error(err); }
     finally { setRerunning(false); }
   };
 
-  const handleViewResume = () => window.open(`${API_BASE_URL}/applicants/${applicantId}/resume`, "_blank");
+  const handleViewResume = () => {
+    const base = import.meta.env.VITE_API_URL?.replace('/api/admin', '') ?? 'http://localhost:8000';
+    window.open(`${base}/api/admin/applicants/${applicantId}/resume`, "_blank");
+  };
 
   if (loading) return <div className="p-8 text-center text-slate-500">Loading candidate…</div>;
+  if (error)   return (
+    <div className="p-8 text-center space-y-3">
+      <p className="text-rose-400 text-sm font-semibold">Failed to load candidate.</p>
+      <button
+        onClick={fetchApplicant}
+        className="text-xs font-bold px-4 py-2 rounded-xl text-white transition-all"
+        style={{ background: NAVY }}
+      >
+        Try Again
+      </button>
+    </div>
+  );
   if (!applicant) return null;
 
   const hasChanged = selectedStatus !== applicant.hiring_status;
@@ -413,7 +425,6 @@ const AIMatchInsights = ({ applicant, topRole }) => {
   return (
     <Card className="h-full w-full rounded-none border-0 shadow-none bg-white overflow-y-auto">
 
-      {/* Branded header */}
       <CardHeader
         className="flex flex-row items-center justify-between pb-5 shrink-0 text-white"
         style={{ background: `linear-gradient(135deg, ${NAVY} 0%, ${TEAL} 100%)` }}
@@ -434,7 +445,6 @@ const AIMatchInsights = ({ applicant, topRole }) => {
 
       <CardContent className="space-y-8 pt-6 pb-10">
 
-        {/* Flag banner */}
         {hasAnyFlag && (
           <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 space-y-2">
             <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest flex items-center gap-1.5">
@@ -453,11 +463,10 @@ const AIMatchInsights = ({ applicant, topRole }) => {
           </div>
         )}
 
-        {/* Personal Info */}
         <div className="space-y-5">
-          <DetailItem label="Full Name"        value={`${applicant.f_name} ${applicant.l_name}`} icon={<User    className="h-4 w-4" style={{ color: TEAL }} />} />
-          <DetailItem label="Email Address"    value={applicant.email}                            icon={<Mail    className="h-4 w-4" style={{ color: TEAL }} />} />
-          <DetailItem label="Phone Number"     value={applicant.phone}                            icon={<Phone   className="h-4 w-4" style={{ color: TEAL }} />} />
+          <DetailItem label="Full Name"        value={`${applicant.f_name} ${applicant.l_name}`} icon={<User      className="h-4 w-4" style={{ color: TEAL }} />} />
+          <DetailItem label="Email Address"    value={applicant.email}                            icon={<Mail      className="h-4 w-4" style={{ color: TEAL }} />} />
+          <DetailItem label="Phone Number"     value={applicant.phone}                            icon={<Phone     className="h-4 w-4" style={{ color: TEAL }} />} />
           <DetailItem label="Applied Position" value={applicant.applied_position}                 icon={<Briefcase className="h-4 w-4" style={{ color: TEAL }} />} />
           <button
             onClick={handleViewResume}
@@ -470,7 +479,6 @@ const AIMatchInsights = ({ applicant, topRole }) => {
 
         <Separator />
 
-        {/* Hiring Stage */}
         <div className="space-y-4">
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Move to Column</label>
           <Select value={selectedStatus} onValueChange={setSelectedStatus}>
@@ -509,7 +517,6 @@ const AIMatchInsights = ({ applicant, topRole }) => {
 
         <Separator />
 
-        {/* AI Prescreening Summary */}
         <div className="space-y-2">
           <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">IntelliHire AI Prescreening Summary</h3>
           {typeof applicant?.ai_prescreening_summary === "string" && applicant.ai_prescreening_summary.trim().length > 0 ? (
@@ -523,7 +530,6 @@ const AIMatchInsights = ({ applicant, topRole }) => {
           )}
         </div>
 
-        {/* AI Match Insights */}
         <div className="space-y-2">
           <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">IntelliHire AI Match Insights</h3>
           <AIMatchInsights applicant={applicant} topRole={topRole} />
@@ -531,7 +537,6 @@ const AIMatchInsights = ({ applicant, topRole }) => {
 
         <Separator />
 
-        {/* Recruiter Notes */}
         <div className="space-y-3">
           <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recruiter Notes</h3>
           <textarea
@@ -540,7 +545,6 @@ const AIMatchInsights = ({ applicant, topRole }) => {
             onChange={e => { setRecruiterNotes(e.target.value); setNotesSaved(false); }}
             placeholder="Add internal notes about this candidate — interview impressions, concerns, follow-ups..."
             className="w-full bg-slate-50 border-2 border-transparent rounded-xl px-4 py-3 text-sm text-slate-700 placeholder:text-slate-300 outline-none resize-none transition-all leading-relaxed"
-            style={{ focusBorderColor: TEAL }}
             onFocus={e => e.target.style.borderColor = TEAL}
             onBlur={e  => e.target.style.borderColor = 'transparent'}
           />
@@ -560,7 +564,7 @@ const AIMatchInsights = ({ applicant, topRole }) => {
               </>
             ) : notesSaved ? "✓ Notes Saved" : "Save Notes"}
           </button>
-        {/* Final Endorsed Position */}
+
           <div className="space-y-3 pt-2">
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
               Final Endorsed Position
@@ -593,7 +597,6 @@ const AIMatchInsights = ({ applicant, topRole }) => {
               Saved together with recruiter notes.
             </p>
           </div>
-
         </div>
 
       </CardContent>

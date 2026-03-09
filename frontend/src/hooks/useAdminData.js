@@ -52,13 +52,28 @@ export const useAdminData = () => {
 
   const handleSaveEmployee = useCallback(async (employeeData) => {
     try {
-      const res = await api.post('/employees', employeeData);
+      const res  = await api.post('/employees', employeeData);
       const saved = res.data;
       setEmployees(prev => [saved, ...prev]);
       return { ok: true, message: 'Employee saved successfully.', employee: saved };
     } catch (err) {
       const { message } = extractErrMessage(err, 'Failed to save employee.');
       console.error('Failed to save employee:', err?.response?.data ?? err);
+      return { ok: false, message };
+    }
+  }, []);
+
+  const handleDeleteEmployee = useCallback(async (id) => {
+    if (!window.confirm('Delete this employee? This will also remove their login access.')) {
+      return { ok: false, message: 'Cancelled.' };
+    }
+    try {
+      await api.delete(`/employees/${id}`);
+      setEmployees(prev => prev.filter(e => e.id !== id));
+      return { ok: true, message: 'Employee deleted.' };
+    } catch (err) {
+      const { message } = extractErrMessage(err, 'Delete employee failed.');
+      console.error('Delete employee failed:', err?.response?.data ?? err);
       return { ok: false, message };
     }
   }, []);
@@ -73,6 +88,7 @@ export const useAdminData = () => {
     loading,
     handleDeleteApplicant,
     handleSaveEmployee,
+    handleDeleteEmployee,
     refresh: fetchData,
   };
 };

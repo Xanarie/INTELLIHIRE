@@ -2,7 +2,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAdminData } from '../hooks/useAdminData';
 import { useJobData }   from '../hooks/useJobData';
-import axios from 'axios';
 import {
   LayoutDashboard, Users, Briefcase, Sparkles,
   Search, LogOut, X, CheckCircle2, GraduationCap, ScrollText,
@@ -21,10 +20,10 @@ import ApplicantDetail from "./ApplicantDetail";
 import JobModal        from './modals/JobModal';
 import { useNavigate } from 'react-router-dom';
 import {
-  onAuthStateChanged, updatePassword, updateProfile, updateEmail,
+  onAuthStateChanged, updatePassword,
   EmailAuthProvider, reauthenticateWithCredential,
 } from 'firebase/auth';
-import { auth } from '../../../backend/firebaseConfig';
+import { auth } from '../firebaseConfig';
 import { useNotifications, pushNotification } from '../hooks/useNotifications';
 import NotificationBell from './NotificationBell';
 
@@ -44,6 +43,8 @@ const TABS = [
   { id: 'logs',        label: 'Activity Logs', icon: ScrollText,      searchable: false },
 ];
 
+const RECRUITER_RESTRICTED_TABS = new Set(['onboarding', 'employee']);
+
 // ── Permissions breakdown ─────────────────────────────────────────────────────
 const ROLE_PERMISSIONS = {
   Admin: [
@@ -51,7 +52,7 @@ const ROLE_PERMISSIONS = {
     'Create, edit, and delete job postings',
     'Move applicants through hiring stages',
     'Access AI screening and scoring results',
-    'Manage employee records',
+    'Manage employee records and accounts',
     'View and export activity logs',
     'Access onboarding workflows',
     'Manage system settings and user accounts',
@@ -62,10 +63,7 @@ const ROLE_PERMISSIONS = {
     'Create, edit, and delete job postings',
     'Move applicants through hiring stages',
     'Access AI screening and scoring results',
-    'Manage employee records',
     'View and export activity logs',
-    'Access onboarding workflows',
-    'Manage system settings and user accounts',
     'View dashboard analytics and reports',
   ],
 };
@@ -142,7 +140,6 @@ const SearchBar = ({ value, onChange, placeholder }) => (
 // ── Permissions Side Panel ────────────────────────────────────────────────────
 const PermissionsPanel = ({ role, onClose }) => (
   <div className="absolute inset-0 bg-white z-10 flex flex-col">
-    {/* Header */}
     <div className="flex items-center gap-3 px-6 pt-6 pb-4 border-b border-slate-100 shrink-0">
       <button
         onClick={onClose}
@@ -157,7 +154,6 @@ const PermissionsPanel = ({ role, onClose }) => (
     </div>
 
     <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
-      {/* Role badges */}
       <div className="flex gap-2 flex-wrap">
         {Object.keys(ROLE_PERMISSIONS).map(r => (
           <div
@@ -182,7 +178,6 @@ const PermissionsPanel = ({ role, onClose }) => (
         ))}
       </div>
 
-      {/* Per-role permission lists */}
       {Object.entries(ROLE_PERMISSIONS).map(([r, perms]) => (
         <div key={r}>
           <p className="text-xs font-black text-slate-500 uppercase tracking-wider mb-3">{r} Access</p>
@@ -228,72 +223,19 @@ const PwInput = ({ label, value, onChange, show, onToggle }) => (
 );
 
 // ── Settings Panel ────────────────────────────────────────────────────────────
-const SettingsPanel = ({ onClose, onToast }) => {
-  const user = auth.currentUser;
-  const role = localStorage.getItem('role') || 'admin';
-  const displayRole = role.charAt(0).toUpperCase() + role.slice(1);
-
-  const [isEditing,   setIsEditing]   = useState(false);
-  const [editName,    setEditName]    = useState(user?.displayName || user?.email?.split('@')[0] || '');
-  const [editEmail,   setEditEmail]   = useState(user?.email || '');
-  const [editPw,      setEditPw]      = useState('');
-  const [showEditPw,  setShowEditPw]  = useState(false);
-  const [editLoading, setEditLoading] = useState(false);
-
-  const [showPermissions, setShowPermissions] = useState(false);
-  const [currentPw,  setCurrentPw]  = useState('');
-  const [newPw,      setNewPw]      = useState('');
-  const [confirmPw,  setConfirmPw]  = useState('');
-  const [showCur,    setShowCur]    = useState(false);
-  const [showNew,    setShowNew]    = useState(false);
-  const [showConf,   setShowConf]   = useState(false);
-  const [pwLoading,  setPwLoading]  = useState(false);
-
+const SettingsPanel = ({ onClose, onToast, currentUserRole }) => {
+  const user        = auth.currentUser;
+  const displayRole = currentUserRole || 'Admin';
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'Admin User';
 
-  const emailChanged = editEmail.trim().toLowerCase() !== (user?.email || '').toLowerCase();
-
-  const handleSaveAccount = async () => {
-    if (!editName.trim()) {
-      onToast({ type: 'error', message: 'Name cannot be empty.' });
-      return;
-    }
-    if (emailChanged && !editPw) {
-      onToast({ type: 'error', message: 'Enter your current password to change email.' });
-      return;
-    }
-    try {
-      setEditLoading(true);
-      if (editName.trim() !== user.displayName) {
-        await updateProfile(user, { displayName: editName.trim() });
-      }
-      if (emailChanged) {
-        const credential = EmailAuthProvider.credential(user.email, editPw);
-        await reauthenticateWithCredential(user, credential);
-        await updateEmail(user, editEmail.trim());
-      }
-      setIsEditing(false);
-      setEditPw('');
-      onToast({ type: 'success', message: 'Account information updated.' });
-    } catch (err) {
-      const msg =
-        err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential'
-          ? 'Current password is incorrect.'
-          : err.code === 'auth/invalid-email'
-          ? 'Invalid email address.'
-          : err.message;
-      onToast({ type: 'error', message: msg });
-    } finally {
-      setEditLoading(false);
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setEditName(user?.displayName || user?.email?.split('@')[0] || '');
-    setEditEmail(user?.email || '');
-    setEditPw('');
-    setIsEditing(false);
-  };
+  const [showPermissions, setShowPermissions] = useState(false);
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw,     setNewPw]     = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [showCur,   setShowCur]   = useState(false);
+  const [showNew,   setShowNew]   = useState(false);
+  const [showConf,  setShowConf]  = useState(false);
+  const [pwLoading, setPwLoading] = useState(false);
 
   const handleChangePassword = async () => {
     if (!currentPw || !newPw || !confirmPw) {
@@ -329,113 +271,46 @@ const SettingsPanel = ({ onClose, onToast }) => {
   return (
     <div className="relative flex flex-col h-full overflow-hidden">
 
-      {/* Header */}
       <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100 shrink-0">
         <div>
           <p className="text-base font-black text-slate-800">Settings</p>
           <p className="text-[10px] text-slate-400 font-medium mt-0.5">Manage your account</p>
         </div>
-        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600">
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600"
+        >
           <X size={16} />
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
 
-        {/* ── Account Information ── */}
         <div>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider">Account Information</p>
-            {!isEditing ? (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="flex items-center gap-1 text-[11px] font-bold transition-colors hover:opacity-70"
-                style={{ color: TEAL }}
-              >
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                </svg>
-                Edit
-              </button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <button onClick={handleCancelEdit} disabled={editLoading} className="text-[11px] font-bold text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50">Cancel</button>
-                <button onClick={handleSaveAccount} disabled={editLoading} className="text-[11px] font-bold text-white px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50" style={{ background: NAVY }}>
-                  {editLoading ? 'Saving…' : 'Save'}
-                </button>
-              </div>
-            )}
-          </div>
-
+          <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-3">
+            Account Information
+          </p>
           <div className="space-y-3">
-
-            {/* Name */}
             <div className="flex items-center gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-100">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: TEAL_LIGHT }}>
                 <User size={14} style={{ color: NAVY }} />
               </div>
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Name</p>
-                {isEditing ? (
-                  <input
-                    value={editName}
-                    onChange={e => setEditName(e.target.value)}
-                    className="w-full text-sm font-semibold text-slate-800 bg-transparent border-b border-slate-300 focus:border-slate-500 outline-none py-0.5 transition-colors"
-                    placeholder="Display name"
-                  />
-                ) : (
-                  <p className="text-sm font-semibold text-slate-800 truncate">{displayName}</p>
-                )}
+                <p className="text-sm font-semibold text-slate-800 truncate">{displayName}</p>
               </div>
             </div>
 
-            {/* Email */}
             <div className="flex items-center gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-100">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: TEAL_LIGHT }}>
                 <Mail size={14} style={{ color: NAVY }} />
               </div>
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Email</p>
-                {isEditing ? (
-                  <input
-                    value={editEmail}
-                    onChange={e => setEditEmail(e.target.value)}
-                    className="w-full text-sm font-semibold text-slate-800 bg-transparent border-b border-slate-300 focus:border-slate-500 outline-none py-0.5 transition-colors"
-                    placeholder="Email address"
-                    type="email"
-                  />
-                ) : (
-                  <p className="text-sm font-semibold text-slate-800 truncate">{user?.email || '—'}</p>
-                )}
+                <p className="text-sm font-semibold text-slate-800 truncate">{user?.email || '—'}</p>
               </div>
             </div>
 
-            {/* Re-auth field — only when email is being changed */}
-            {isEditing && emailChanged && (
-              <div className="flex items-center gap-3 p-3.5 rounded-xl bg-amber-50 border border-amber-100">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-amber-100">
-                  <Lock size={14} className="text-amber-600" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Confirm Current Password</p>
-                  <div className="relative">
-                    <input
-                      type={showEditPw ? 'text' : 'password'}
-                      value={editPw}
-                      onChange={e => setEditPw(e.target.value)}
-                      className="w-full text-sm font-semibold text-slate-800 bg-transparent border-b border-amber-300 focus:border-amber-500 outline-none py-0.5 transition-colors pr-6"
-                      placeholder="Required to change email"
-                    />
-                    <button type="button" onClick={() => setShowEditPw(v => !v)} className="absolute right-0 top-1/2 -translate-y-1/2 text-amber-400 hover:text-amber-600 transition-colors">
-                      {showEditPw ? <EyeOff size={12} /> : <Eye size={12} />}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Permissions — opens sub-panel (not editable) */}
             <button
               onClick={() => setShowPermissions(true)}
               className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-100 hover:border-slate-300 transition-colors text-left group"
@@ -449,13 +324,11 @@ const SettingsPanel = ({ onClose, onToast }) => {
               </div>
               <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
             </button>
-
           </div>
         </div>
 
         <div className="border-t border-slate-100" />
 
-        {/* ── Change Password ── */}
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Lock size={13} className="text-slate-400" />
@@ -478,7 +351,6 @@ const SettingsPanel = ({ onClose, onToast }) => {
 
       </div>
 
-      {/* Permissions sub-panel slides in over Settings */}
       <div
         className={`absolute inset-0 transform transition-transform duration-300 ease-in-out ${
           showPermissions ? 'translate-x-0' : 'translate-x-full'
@@ -502,23 +374,16 @@ const AdminPortal = () => {
   const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
-  const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        navigate('/login');
-      } else {
-        setAuthChecked(true);
-        // All axios requests will carry the logged-in user's name
-        // so the backend can log who performed each action
-        axios.defaults.headers.common['X-Performed-By'] =
-        user.displayName || user.email?.split('@')[0] || 'Admin';
-      }
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) navigate('/login');
+      else setAuthChecked(true);
     });
     return () => unsubscribe();
   }, [navigate]);
 
   const {
     applicants, employees, loading: appLoading,
-    handleSaveEmployee, handleDeleteApplicant, refresh: refreshApplicants,
+    handleSaveEmployee, handleDeleteEmployee, handleDeleteApplicant, refresh: refreshApplicants,
   } = useAdminData();
 
   const {
@@ -527,6 +392,18 @@ const AdminPortal = () => {
 
   const loading = appLoading || jobsLoading;
   const refresh = () => { refreshApplicants(); refreshJobs(); };
+
+  const currentUserRole = useMemo(() => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return 'Admin';
+    const match = employees.find(e => e.uid === uid);
+    return match?.permission_role || 'Admin';
+  }, [employees]);
+
+  const visibleTabs = useMemo(() => {
+    if (currentUserRole === 'Admin') return TABS;
+    return TABS.filter(t => !RECRUITER_RESTRICTED_TABS.has(t.id));
+  }, [currentUserRole]);
 
   const [activeTab,           setActiveTab]           = useState(() => localStorage.getItem('intellihire_active_tab') || 'recruitment');
   const [searchTerm,          setSearchTerm]          = useState('');
@@ -537,6 +414,12 @@ const AdminPortal = () => {
   const [toast,               setToast]               = useState(null);
   const [isSettingsOpen,      setIsSettingsOpen]      = useState(false);
   const { notifications, unreadCount, popupQueue, markAllRead, dismissPopup } = useNotifications();
+
+  useEffect(() => {
+    if (currentUserRole !== 'Admin' && RECRUITER_RESTRICTED_TABS.has(activeTab)) {
+      setActiveTab('recruitment');
+    }
+  }, [currentUserRole, activeTab]);
 
   useEffect(() => {
     const meta = TABS.find(t => t.id === activeTab);
@@ -569,7 +452,7 @@ const AdminPortal = () => {
 
   const filteredEmployees = useMemo(
     () => employees.filter(e =>
-      `${e?.f_name || ''} ${e?.l_name || ''}`.toLowerCase().includes(searchTerm.toLowerCase())
+      `${e?.name || ''} ${e?.email || ''}`.toLowerCase().includes(searchTerm.toLowerCase())
     ),
     [employees, searchTerm]
   );
@@ -656,7 +539,7 @@ const AdminPortal = () => {
       >
         <Brand collapsed={collapsed} toggle={() => setCollapsed(!collapsed)} />
         <nav className="flex flex-col gap-0.5 flex-1 mt-8">
-          {TABS.map(({ id, label, icon }) => (
+          {visibleTabs.map(({ id, label, icon }) => (
             <NavItem
               key={id} icon={icon} label={label}
               active={activeTab === id}
@@ -666,7 +549,6 @@ const AdminPortal = () => {
           ))}
         </nav>
 
-        {/* Settings */}
         <button
           onClick={() => setIsSettingsOpen(true)}
           title={collapsed ? 'Settings' : undefined}
@@ -677,7 +559,6 @@ const AdminPortal = () => {
           {!collapsed && <span className="font-medium">Settings</span>}
         </button>
 
-        {/* Logout */}
         <button
           onClick={() => {
             auth.signOut();
@@ -766,11 +647,17 @@ const AdminPortal = () => {
                 const result = await handleSaveEmployee(emp);
                 if (result?.ok) {
                   setToast({ type: 'success', message: result.message || 'Employee saved.' });
-                  pushNotification(`added employee ${emp.f_name || ''} ${emp.l_name || ''}`.trim(), 'employee');
+                  pushNotification(`added employee ${emp.name || ''}`.trim(), 'employee');
                 } else {
                   setToast({ type: 'error', message: result?.message || 'Employee save failed.' });
                 }
                 return result?.ok === true;
+              }}
+              onDelete={async id => {
+                const result = await handleDeleteEmployee(id);
+                if (result?.ok) setToast({ type: 'success', message: result.message || 'Employee deleted.' });
+                else if (result?.message && result.message !== 'Cancelled.')
+                  setToast({ type: 'error', message: result.message });
               }}
             />
           </div>
@@ -804,13 +691,12 @@ const AdminPortal = () => {
       {/* ── Applicant Detail slide-over ──────────────────────────────────────── */}
       <div className={`fixed inset-y-0 right-0 w-full md:w-[500px] bg-white shadow-2xl z-[100] transform transition-transform duration-500 ease-in-out border-l border-slate-100 ${selectedApplicantId ? 'translate-x-0' : 'translate-x-full'}`}>
         {selectedApplicantId && (
-        <ApplicantDetail
-          applicantId={selectedApplicantId}
-          jobs={jobs}
-          onClose={() => setSelectedApplicantId(null)}
-          onRefresh={refresh}
-          flagMap={flagMap}
-        />
+          <ApplicantDetail
+            applicantId={selectedApplicantId}
+            flagMap={flagMap}
+            onClose={() => setSelectedApplicantId(null)}
+            onRefresh={refresh}
+          />
         )}
       </div>
       {selectedApplicantId && (
@@ -823,6 +709,7 @@ const AdminPortal = () => {
           <SettingsPanel
             onClose={() => setIsSettingsOpen(false)}
             onToast={setToast}
+            currentUserRole={currentUserRole}
           />
         )}
       </div>
@@ -833,12 +720,16 @@ const AdminPortal = () => {
       {/* ── Toast ───────────────────────────────────────────────────────────── */}
       {toast && (
         <div className="fixed bottom-6 right-6 z-[200]">
-          <div className={`flex items-start gap-3 px-5 py-4 rounded-2xl shadow-2xl border bg-white ${toast.type === 'success' ? 'border-emerald-100' : 'border-rose-100'}`}>
+          <div className={`flex items-start gap-3 px-5 py-4 rounded-2xl shadow-2xl border bg-white ${
+            toast.type === 'success' ? 'border-emerald-100' : 'border-rose-100'
+          }`}>
             <div className={`mt-0.5 ${toast.type === 'success' ? 'text-emerald-500' : 'text-rose-500'}`}>
               {toast.type === 'success' ? <CheckCircle2 size={18} /> : <X size={18} />}
             </div>
             <div className="min-w-[220px]">
-              <div className="text-sm font-bold text-slate-800">{toast.type === 'success' ? 'Success' : 'Error'}</div>
+              <div className="text-sm font-bold text-slate-800">
+                {toast.type === 'success' ? 'Success' : 'Error'}
+              </div>
               <div className="text-xs text-slate-500 mt-0.5">{toast.message}</div>
             </div>
             <button type="button" onClick={() => setToast(null)} className="ml-2 text-slate-300 hover:text-slate-500 transition-colors">

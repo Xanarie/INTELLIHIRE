@@ -1,4 +1,3 @@
-# backend/app/routers/admin.py
 import os
 import tempfile
 import requests
@@ -6,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Header, Depends
 from fastapi.responses import Response
 
 from app.firebase_client import get_db, doc_to_dict
@@ -27,6 +26,10 @@ router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
 
 # ── Shared helpers ────────────────────────────────────────────────────────────
+
+def get_actor(x_actor_name: Optional[str] = Header(default=None)) -> str:
+    """Reads X-Actor-Name header injected by the frontend axios interceptor."""
+    return x_actor_name or "System"
 
 def _has_desc(job: dict) -> bool:
     return any(
@@ -91,7 +94,7 @@ def get_applicant(applicant_id: str):
 
 
 @router.put("/applicants/{applicant_id}", response_model=UserResponse)
-def update_applicant(applicant_id: str, applicant_data: UserUpdate, request: Request):
+def update_applicant(applicant_id: str, applicant_data: UserUpdate, actor: str = Depends(get_actor)):
     db  = get_db()
     ref = db.collection("applicants").document(applicant_id)
     if not ref.get().exists:
@@ -103,13 +106,13 @@ def update_applicant(applicant_id: str, applicant_data: UserUpdate, request: Req
         action="applicant_updated", entity_type="applicant",
         entity_id=applicant_id,   entity_name=_applicant_name(data),
         details=f"Profile updated. Fields: {', '.join(payload.keys())}",
-        performed_by=request.headers.get("X-Performed-By", "System"),
+        performed_by=actor,
     )
     return data
 
 
 @router.patch("/applicants/{applicant_id}", response_model=UserResponse)
-def update_applicant_status(applicant_id: str, status_data: StatusUpdate, request: Request):
+def update_applicant_status(applicant_id: str, status_data: StatusUpdate, actor: str = Depends(get_actor)):
     db  = get_db()
     ref = db.collection("applicants").document(applicant_id)
     doc = ref.get()
@@ -122,37 +125,33 @@ def update_applicant_status(applicant_id: str, status_data: StatusUpdate, reques
         action="status_changed", entity_type="applicant",
         entity_id=applicant_id,  entity_name=_applicant_name(data),
         details=f"Stage moved: '{prev}' → '{status_data.hiring_status}'",
-        performed_by=request.headers.get("X-Performed-By", "System"),
+        performed_by=actor,
     )
     return data
 
 
 @router.patch("/applicants/{applicant_id}/notes")
-def save_recruiter_notes(applicant_id: str, payload: dict, request: Request):
+def save_recruiter_notes(applicant_id: str, payload: dict, actor: str = Depends(get_actor)):
     db  = get_db()
     ref = db.collection("applicants").document(applicant_id)
     doc = ref.get()
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Applicant not found")
-    update_fields = {}
-    if "recruiter_notes" in payload:
-        update_fields["recruiter_notes"] = payload["recruiter_notes"]
-    if "endorsed_position" in payload:
-        update_fields["endorsed_position"] = payload["endorsed_position"]
-    if update_fields:
-        ref.update(update_fields)
+    notes             = payload.get("recruiter_notes", "")
+    endorsed_position = payload.get("endorsed_position", "")
+    ref.update({"recruiter_notes": notes, "endorsed_position": endorsed_position})
     data = doc_to_dict(ref.get())
     write_log(
         action="notes_updated", entity_type="applicant",
         entity_id=applicant_id, entity_name=_applicant_name(data),
         details="Recruiter notes updated.",
-        performed_by=request.headers.get("X-Performed-By", "System"),
+        performed_by=actor,
     )
-    return {"ok": True, **update_fields}
+    return {"ok": True, "recruiter_notes": notes}
 
 
 @router.delete("/applicants/{applicant_id}")
-def delete_applicant(applicant_id: str, request: Request):
+def delete_applicant(applicant_id: str, actor: str = Depends(get_actor)):
     db  = get_db()
     ref = db.collection("applicants").document(applicant_id)
     doc = ref.get()
@@ -169,13 +168,13 @@ def delete_applicant(applicant_id: str, request: Request):
         action="applicant_deleted", entity_type="applicant",
         entity_id=applicant_id,    entity_name=name,
         details=f"'{name}' permanently deleted including resume and status history.",
-        performed_by=request.headers.get("X-Performed-By", "System"),
+        performed_by=actor,
     )
     return {"message": f"Applicant {applicant_id} deleted successfully"}
 
 
 @router.get("/applicants/{applicant_id}/resume")
-def view_resume(applicant_id: str):
+def view_resume(applicant_id: str, actor: str = Depends(get_actor)):
     db  = get_db()
     doc = db.collection("applicants").document(applicant_id).get()
     if not doc.exists:
@@ -188,6 +187,7 @@ def view_resume(applicant_id: str):
         action="resume_viewed", entity_type="applicant",
         entity_id=applicant_id, entity_name=_applicant_name(data),
         details="Resume opened.",
+        performed_by=actor,
     )
     resume_bytes = _download_resume_bytes(url)
     return Response(
@@ -197,7 +197,7 @@ def view_resume(applicant_id: str):
 
 
 @router.post("/applicants/{applicant_id}/prescreen", response_model=UserResponse)
-def rerun_prescreen(applicant_id: str):
+def rerun_prescreen(applicant_id: str, actor: str = Depends(get_actor)):
     db  = get_db()
     ref = db.collection("applicants").document(applicant_id)
     doc = ref.get()
@@ -265,6 +265,7 @@ def rerun_prescreen(applicant_id: str):
         entity_id=applicant_id,  entity_name=name,
         details=f"AI prescreen re-run. Resume score: {updates.get('ai_resume_score', '—')}, "
                 f"Job match: {updates.get('ai_job_match_score', '—')}.",
+        performed_by=actor,
     )
     return doc_to_dict(ref.get())
 
@@ -279,39 +280,45 @@ def get_role_suggestions(applicant_id: str):
     url  = data.get("resume_path")
     if not url:
         return {"suggestions": []}
+
     resume_bytes      = _download_resume_bytes(url)
     resume_focus_text = _extract_focus_text(resume_bytes)
     if not resume_focus_text:
         return {"suggestions": []}
+
     open_jobs      = db.collection("jobs").where("status", "==", "Open").get()
     scoreable_jobs = [doc_to_dict(j) for j in open_jobs if _has_desc(doc_to_dict(j))]
-    if not scoreable_jobs:
-        return {"suggestions": []}
 
     def _score(jd):
         try:
             result = score_applicant(resume_focus_text, _job_full_text(jd))
             return {
-                "job_id": jd["id"], "title": jd["title"],
-                "department": jd.get("department", ""),
-                "score": result.get("score", 0.0),
-                "bucket": result.get("bucket", "Weak"),
-                "knockout": result.get("knockout", False),
-                "is_applied_position": jd["title"] == data.get("applied_position"),
+                "job_id":              jd.get("id", ""),
+                "title":               jd.get("title", ""),
+                "department":          jd.get("department", ""),
+                "score":               result.get("score", 0.0),
+                "bucket":              result.get("bucket", "Weak"),
+                "knockout":            result.get("knockout", False),
+                "is_applied_position": jd.get("title") == data.get("applied_position"),
             }
         except Exception as e:
-            print(f"[Suggestions] Failed for {jd.get('title')}: {e}")
+            print(f"[RoleSuggestions] Failed for {jd.get('title')}: {e}")
             return None
 
-    results = []
+    suggestions = []
     with ThreadPoolExecutor(max_workers=6) as pool:
         for future in as_completed([pool.submit(_score, jd) for jd in scoreable_jobs]):
             r = future.result()
             if r:
-                results.append(r)
-    results.sort(key=lambda x: x["score"], reverse=True)
-    return {"suggestions": results}
+                suggestions.append(r)
 
+    suggestions.sort(key=lambda x: x["score"], reverse=True)
+    return {"suggestions": suggestions}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SMART SCREEN
+# ═══════════════════════════════════════════════════════════════════════════════
 
 @router.get("/smart-screen")
 def smart_screen(title: str):
@@ -323,6 +330,7 @@ def smart_screen(title: str):
     jd_text = _job_full_text(job)
     if not jd_text.strip():
         raise HTTPException(status_code=400, detail="Job has no description")
+
     all_applicants = [doc_to_dict(d) for d in db.collection("applicants").get()]
 
     def _score_applicant(a):
@@ -398,7 +406,7 @@ def get_job(job_id: str):
 
 
 @router.post("/jobs", response_model=JobResponse)
-def create_job(job_data: JobCreate, request: Request):
+def create_job(job_data: JobCreate, actor: str = Depends(get_actor)):
     db = get_db()
     payload = {**job_data.model_dump(), "created_at": datetime.now(timezone.utc).isoformat()}
     _, ref        = db.collection("jobs").add(payload)
@@ -407,13 +415,13 @@ def create_job(job_data: JobCreate, request: Request):
         action="job_created", entity_type="job",
         entity_id=ref.id,    entity_name=job_data.title,
         details=f"Job '{job_data.title}' created in {job_data.department or '—'}, status '{job_data.status}'.",
-        performed_by=request.headers.get("X-Performed-By", "System"),
+        performed_by=actor,
     )
     return payload
 
 
 @router.put("/jobs/{job_id}", response_model=JobResponse)
-def update_job(job_id: str, job_data: JobUpdate, request: Request):
+def update_job(job_id: str, job_data: JobUpdate, actor: str = Depends(get_actor)):
     db  = get_db()
     ref = db.collection("jobs").document(job_id)
     if not ref.get().exists:
@@ -425,13 +433,13 @@ def update_job(job_id: str, job_data: JobUpdate, request: Request):
         action="job_updated", entity_type="job",
         entity_id=job_id,    entity_name=updated.get("title", job_id),
         details=f"Job updated. Fields: {', '.join(payload.keys())}",
-        performed_by=request.headers.get("X-Performed-By", "System"),
+        performed_by=actor,
     )
     return updated
 
 
 @router.delete("/jobs/{job_id}")
-def delete_job(job_id: str, request: Request):
+def delete_job(job_id: str, actor: str = Depends(get_actor)):
     db  = get_db()
     ref = db.collection("jobs").document(job_id)
     doc = ref.get()
@@ -443,7 +451,7 @@ def delete_job(job_id: str, request: Request):
         action="job_deleted", entity_type="job",
         entity_id=job_id,    entity_name=title,
         details=f"Job posting '{title}' permanently deleted.",
-        performed_by=request.headers.get("X-Performed-By", "System"),
+        performed_by=actor,
     )
     return {"message": f"Job {job_id} deleted successfully"}
 
@@ -460,11 +468,13 @@ def get_all_employees():
 
 
 @router.post("/employees")
-def create_employee(emp_data: dict, request: Request):
+def create_employee(emp_data: dict, actor: str = Depends(get_actor)):
     db = get_db()
     payload = {
-        "name": emp_data.get("name", ""), "role": emp_data.get("role", ""),
-        "dept": emp_data.get("dept", "General"),
+        "name":       emp_data.get("name", ""),
+        "role":       emp_data.get("role", ""),
+        "dept":       emp_data.get("dept", "General"),
+        "email":      emp_data.get("email", ""),
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     _, ref        = db.collection("employees").add(payload)
@@ -473,9 +483,27 @@ def create_employee(emp_data: dict, request: Request):
         action="employee_added", entity_type="employee",
         entity_id=ref.id,       entity_name=payload["name"],
         details=f"Employee '{payload['name']}' added as {payload['role']}.",
-        performed_by=request.headers.get("X-Performed-By", "System"),
+        performed_by=actor,
     )
     return payload
+
+
+@router.delete("/employees/{employee_id}")
+def delete_employee(employee_id: str, actor: str = Depends(get_actor)):
+    db  = get_db()
+    ref = db.collection("employees").document(employee_id)
+    doc = ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    name = doc_to_dict(doc).get("name", employee_id)
+    ref.delete()
+    write_log(
+        action="employee_deleted", entity_type="employee",
+        entity_id=employee_id,    entity_name=name,
+        details=f"Employee '{name}' removed.",
+        performed_by=actor,
+    )
+    return {"ok": True, "message": f"Employee {employee_id} deleted"}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

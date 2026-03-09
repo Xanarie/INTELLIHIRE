@@ -1,11 +1,13 @@
 // frontend/src/hooks/useNotifications.js
 import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  ref, push, onValue, off, get, set,
+} from 'firebase/database';
 import { onAuthStateChanged } from 'firebase/auth';
-import { ref, push, onValue, off, get, set } from 'firebase/database';
-import { db, auth } from '../../../backend/firebaseConfig';
+import { db, auth } from '../firebaseConfig';
 
 /**
- * Writes a notification to Firebase RTDB.
+ * Writes a single notification to Firebase RTDB.
  */
 export async function pushNotification(message, tab, entityId = null) {
   const user = auth.currentUser;
@@ -25,90 +27,91 @@ export async function pushNotification(message, tab, entityId = null) {
   }
 }
 
+/**
+ * Main notifications hook.
+ * Returns { notifications, unreadCount, popupQueue, markAllRead, dismissPopup }
+ */
 export function useNotifications() {
-  // ── Reactive auth — fixes the race where auth.currentUser is null on first render ──
+  // ── Reactive currentUid — waits for Firebase auth to resolve ─────────────
   const [currentUid, setCurrentUid] = useState(() => auth.currentUser?.uid ?? null);
 
   useEffect(() => {
-    // onAuthStateChanged returns unsubscribe — use as cleanup directly
-    return onAuthStateChanged(auth, user => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUid(user?.uid ?? null);
     });
+    return () => unsubscribe();
   }, []);
 
   const [notifications, setNotifications] = useState([]);
-  const [lastReadAt,    setLastReadAt]    = useState(null);
-  const [popupQueue,    setPopupQueue]    = useState([]);
+  const [lastReadAt,    setLastReadAt]     = useState(null);
+  const [popupQueue,    setPopupQueue]     = useState([]);
 
   const lastReadAtRef = useRef(null);
+  const isMountedRef  = useRef(true);
   const seenIdsRef    = useRef(new Set());
 
-  // ── Load lastReadAt for this user ──────────────────────────────────────────
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
+
+  // ── Load lastReadAt once currentUid is known ────────────────────────────
   useEffect(() => {
     if (!currentUid) return;
-    let mounted = true;
-    get(ref(db, `userActivity/${currentUid}/lastReadAt`))
-      .then(snap => {
-        if (!mounted) return;
-        const val = snap.val() ?? 0;
+    const userRef = ref(db, `userActivity/${currentUid}/lastReadAt`);
+    get(userRef).then(snap => {
+      const val = snap.val() || 0;
+      if (isMountedRef.current) {
         setLastReadAt(val);
         lastReadAtRef.current = val;
-      })
-      .catch(() => {
-        if (!mounted) return;
-        setLastReadAt(0);
-        lastReadAtRef.current = 0;
-      });
-    return () => { mounted = false; };
+      }
+    }).catch(() => {});
   }, [currentUid]);
 
-  // ── Subscribe to /notifications once auth + lastReadAt are ready ──────────
+  // ── Subscribe to notifications once currentUid is known ────────────────
   useEffect(() => {
-    if (!currentUid || lastReadAt === null) return;
+    if (!currentUid) return;
 
     const notifRef = ref(db, 'notifications');
-    let mounted = true;
 
     const handler = (snap) => {
-      if (!mounted) return;
-      const raw = snap.val() || {};
-      const all = Object.entries(raw)
-        .map(([id, data]) => ({ id, ...data }))
+      if (!snap.exists() || !isMountedRef.current) return;
+
+      const raw = snap.val();
+      const list = Object.entries(raw)
+        .map(([id, val]) => ({ id, ...val }))
         .sort((a, b) => b.timestamp - a.timestamp);
 
-      setNotifications(all);
+      setNotifications(list);
 
-      // Only pop for notifications from OTHER users that arrived after lastReadAt
-      all.forEach(n => {
-        if (
-          n.actorUid !== currentUid &&
-          n.timestamp > lastReadAtRef.current &&
-          !seenIdsRef.current.has(n.id)
-        ) {
-          seenIdsRef.current.add(n.id);
-          setPopupQueue(prev => [...prev, n]);
-        }
-      });
+      // Show popup only for new notifications from others
+      const newItems = list.filter(n =>
+        !seenIdsRef.current.has(n.id) &&
+        n.actorUid !== currentUid &&
+        n.timestamp > (lastReadAtRef.current || 0)
+      );
+
+      newItems.forEach(n => seenIdsRef.current.add(n.id));
+
+      if (newItems.length > 0) {
+        setPopupQueue(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const toAdd = newItems.filter(n => !existingIds.has(n.id));
+          return [...prev, ...toAdd];
+        });
+      }
     };
 
     onValue(notifRef, handler);
-    return () => {
-      mounted = false;
-      off(notifRef, 'value', handler);
-    };
-  }, [currentUid, lastReadAt]);
+    return () => off(notifRef, 'value', handler);
+  }, [currentUid]);
 
-  // ── Mark all as read ───────────────────────────────────────────────────────
-  const markAllRead = useCallback(async () => {
+  const markAllRead = useCallback(() => {
     if (!currentUid) return;
     const now = Date.now();
-    lastReadAtRef.current = now;
     setLastReadAt(now);
-    try {
-      await set(ref(db, `userActivity/${currentUid}/lastReadAt`), now);
-    } catch (err) {
-      console.warn('markAllRead failed:', err);
-    }
+    lastReadAtRef.current = now;
+    set(ref(db, `userActivity/${currentUid}/lastReadAt`), now).catch(() => {});
   }, [currentUid]);
 
   const dismissPopup = useCallback((id) => {
