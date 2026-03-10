@@ -547,22 +547,6 @@ const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap =
             onFocus={e => e.target.style.borderColor = TEAL}
             onBlur={e  => e.target.style.borderColor = 'transparent'}
           />
-          <button
-            onClick={handleSaveNotes}
-            disabled={savingNotes}
-            className="w-full py-3 rounded-xl text-white text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-60 flex items-center justify-center gap-2"
-            style={{ background: `linear-gradient(135deg, ${NAVY} 0%, ${TEAL} 100%)` }}
-          >
-            {savingNotes ? (
-              <>
-                <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                </svg>
-                Saving…
-              </>
-            ) : notesSaved ? "✓ Notes Saved" : "Save Notes"}
-          </button>
 
           <div className="space-y-3 pt-2">
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -596,6 +580,24 @@ const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap =
               Saved together with recruiter notes.
             </p>
           </div>
+
+          <button
+            onClick={handleSaveNotes}
+            disabled={savingNotes}
+            className="w-full py-3 rounded-xl text-white text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+            style={{ background: `linear-gradient(135deg, ${NAVY} 0%, ${TEAL} 100%)` }}
+          >
+            {savingNotes ? (
+              <>
+                <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                </svg>
+                Saving…
+              </>
+            ) : notesSaved ? "✓ Saved" : "Save"}
+          </button>
+
         </div>
 
       </CardContent>

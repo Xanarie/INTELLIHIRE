@@ -3,6 +3,7 @@ import { api } from '@/config/api';
 import { SlidersHorizontal, Trophy, Search, FileText, Sparkles, Briefcase, Loader2, Play, CheckCircle2, XCircle, RotateCcw } from 'lucide-react';
 import CandidateModal from '../modals/CandidateModal';
 
+// ── Resume scoring constants ──────────────────────────────────────────────
 const DEFAULT_WEIGHTS = { structure: 30, experience: 30, impact: 25, clarity: 15 };
 const WEIGHT_META = [
   { key: 'structure',  label: 'Resume Structure',     color: '#2A5C9A', desc: 'Section headings, bullet formatting, organisation' },
@@ -12,11 +13,12 @@ const WEIGHT_META = [
 ];
 const STORAGE_KEY = 'intellihire_score_weights';
 
-// ── NEW: Match scoring constants ──────────────────────────────────────────────
-const DEFAULT_MATCH_WEIGHTS = { keyword: 70, experience: 30 };
+// ── Match scoring constants ──────────────────────────────────────────────
+const DEFAULT_MATCH_WEIGHTS = { keyword: 35, semantic: 50, experience: 15 };
 const MATCH_WEIGHT_META = [
-  { key: 'keyword',    label: 'Keyword Coverage', color: '#2A5C9A', desc: 'How well resume keywords match the job description' },
-  { key: 'experience', label: 'Experience Fit',   color: '#10B981', desc: 'Candidate experience years vs job requirement' },
+  { key: 'keyword',    label: 'Keyword Coverage',    color: '#2A5C9A', desc: 'How well resume keywords match the job description' },
+  { key: 'semantic',   label: 'Semantic Similarity',  color: '#7C3AED', desc: 'TF-IDF cosine similarity between resume and job text' },
+  { key: 'experience', label: 'Experience Fit',       color: '#10B981', desc: 'Candidate experience years vs job requirement' },
 ];
 const MATCH_STORAGE_KEY = 'intellihire_match_weights';
 
@@ -451,16 +453,6 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
                 />
               </div>
             ))}
-
-            {/* Semantic Similarity — disabled notice */}
-            <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50/30">
-              <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-slate-300" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-slate-400 leading-tight">Semantic Similarity</p>
-                <p className="text-[9px] text-slate-300 truncate">Currently disabled — embeddings are off</p>
-              </div>
-              <span className="w-14 text-center text-sm font-black text-slate-300">0</span>
-            </div>
 
             {/* Total */}
             <div className="flex justify-end pt-1 pr-1">

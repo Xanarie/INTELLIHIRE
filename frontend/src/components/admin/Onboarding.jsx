@@ -201,7 +201,7 @@ const CandidateCard = ({ person, onStatusChange, onNotify }) => {
 };
 
 // ── Main Component ────────────────────────────────────────────────────────────
-const OnboardingTab = ({ applicants = [], onRefresh, onNotify }) => {
+const OnboardingTab = ({ applicants = [], jobs = [], onRefresh, onSelectApplicant, onNotify }) => {
   const [localApplicants, setLocalApplicants] = useState(applicants);
 
   // Keep in sync when parent refreshes
@@ -216,12 +216,13 @@ const OnboardingTab = ({ applicants = [], onRefresh, onNotify }) => {
   const groupedByDept = useMemo(() => {
     const groups = {};
     localApplicants.forEach(app => {
-      const dept = app.department || 'Unassigned';
+      const endorsedJob = jobs.find(j => j.title === app.endorsed_position);
+      const dept = endorsedJob?.department || app.department || 'Unassigned';
       if (!groups[dept]) groups[dept] = [];
       groups[dept].push(app);
     });
     return groups;
-  }, [localApplicants]);
+  }, [localApplicants, jobs]);
 
   if (localApplicants.length === 0) {
     return (

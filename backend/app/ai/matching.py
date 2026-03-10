@@ -16,27 +16,22 @@ from app.ai.utils import normalize_skill, keyword_hits
 
 @dataclass(frozen=True)
 class MatchConfig:
-    # Weights when explicit must_haves ARE provided (sum = 100)
     w_must_have:    int = 40
     w_similarity:   int = 35
     w_nice_to_have: int = 10
     w_experience:   int = 15
 
-    # Weights when must_haves are AUTO-DERIVED from job text (sum = 100)
     w_auto_keyword:    int = 35
     w_similarity_auto: int = 50
     w_experience_auto: int = 15
 
-    # Knockout: if <60% of explicit must-haves are present, cap the score
-    must_have_knockout_ratio: float = 0.60
-    cap_if_knockout:          float = 49.0
+    must_have_knockout_ratio: float = 0.35   
+    cap_if_knockout:          float = 55.0   
 
-    # 5-tier bucket thresholds
-    highly_qualified:      float = 80.0
-    moderately_qualified:  float = 65.0
-    qualified:             float = 50.0
-    for_review:            float = 35.0
-    # < for_review → "Not Qualified"
+    highly_qualified:      float = 70.0      
+    moderately_qualified:  float = 55.0      
+    qualified:             float = 40.0      
+    for_review:            float = 25.0      
 
 
 # ---------------------------------------------------------------------------

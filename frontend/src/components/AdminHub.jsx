@@ -666,6 +666,7 @@ const AdminPortal = () => {
           <div className="px-8 py-8">
             <OnboardingTab
               applicants={onboardingApplicants}
+              jobs={jobs}
               onRefresh={refresh}
               onSelectApplicant={setSelectedApplicantId}
               onNotify={pushNotification}
