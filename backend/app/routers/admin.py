@@ -341,6 +341,14 @@ def get_role_suggestions(applicant_id: str):
     suggestions.sort(key=lambda x: x["score"], reverse=True)
     return {"suggestions": suggestions}
 
+@router.patch("/applicants/{applicant_id}/onboarding-checklist")
+def save_onboarding_checklist(applicant_id: str, payload: dict):
+    db  = get_db()
+    ref = db.collection("applicants").document(applicant_id)
+    if not ref.get().exists:
+        raise HTTPException(status_code=404, detail="Applicant not found")
+    ref.update({"onboarding_checklist": payload.get("onboarding_checklist", {})})
+    return {"ok": True}
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SMART SCREEN

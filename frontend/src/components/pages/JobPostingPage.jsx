@@ -1,7 +1,7 @@
 // frontend/src/components/pages/JobPostingPage.jsx
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+
 import {
   Briefcase, MapPin, Building2, ClipboardList, Star,
   Lightbulb, FileText, ChevronRight, Loader2, AlertCircle, Info,
@@ -57,7 +57,7 @@ const JobPostingPage = () => {
   const [error,   setError]   = useState(null);
 
   useEffect(() => {
-    axios.get(`${api}/jobs/${jobId}`)
+    api.get(`/jobs/${jobId}`)
       .then(r => { setJob(r.data); setLoading(false); })
       .catch(() => { setError('This job posting could not be found.'); setLoading(false); });
   }, [jobId]);

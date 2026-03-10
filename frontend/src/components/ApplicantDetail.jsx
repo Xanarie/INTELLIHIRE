@@ -16,6 +16,18 @@ import { getFlags } from "../utils/flagUtils";
 
 const HIRING_STAGES = ["Pre-screening", "Screening", "Interview", "Offer", "Accepted", "Rejected"];
 
+const ALLOWED_STAGES = {
+  "Pre-screening": new Set(["Pre-screening", "Screening", "Interview", "Offer", "Rejected"]),
+  "Screening":     new Set(["Pre-screening", "Screening", "Interview", "Offer", "Rejected"]),
+  "Interview":     new Set(["Pre-screening", "Screening", "Interview", "Offer", "Rejected"]),
+  "Offer":         new Set(["Interview", "Offer", "Accepted", "Rejected"]),
+};
+
+function isStageAllowed(currentStatus, targetStage) {
+  const allowed = ALLOWED_STAGES[currentStatus];
+  return allowed ? allowed.has(targetStage) : true;
+}
+
 const NAVY       = "#1A3C6E";
 const TEAL       = "#00AECC";
 const TEAL_LIGHT = "#E6F7FB";
@@ -491,26 +503,30 @@ const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap =
         <Separator />
 
         <div className="space-y-4">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Move to Column</label>
-          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-            <SelectTrigger className="w-full h-12 border-2 border-slate-100 bg-slate-50 font-bold" style={{ color: NAVY }}>
-              <SelectValue placeholder="Select stage…" />
-            </SelectTrigger>
-            <SelectContent className="bg-white border border-slate-200 rounded-xl shadow-xl z-[200]" position="popper" sideOffset={5}>
-              {HIRING_STAGES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Change Hiring Stage</label>
+            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+              <SelectTrigger className="w-full h-12 border-2 border-slate-100 bg-slate-50 font-bold" style={{ color: NAVY }}>
+                <SelectValue placeholder="Select stage…" />
+              </SelectTrigger>
+              <SelectContent className="bg-white border border-slate-200 rounded-xl shadow-xl z-[200]" position="popper" sideOffset={5}>
+                {HIRING_STAGES.map(s => (
+                  <SelectItem key={s} value={s} disabled={!isStageAllowed(applicant.hiring_status, s)}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          {hasChanged && (
-            <button
-              onClick={handleConfirmMove}
-              disabled={saving}
-              className="w-full h-12 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-60 animate-in slide-in-from-bottom-2"
-              style={{ background: `linear-gradient(135deg, ${NAVY} 0%, ${TEAL} 100%)` }}
-            >
-              {saving ? "Updating…" : <><Send className="h-4 w-4" />Confirm Move to {selectedStatus}</>}
-            </button>
-          )}
+            {hasChanged && (
+              <button
+                onClick={handleConfirmMove}
+                disabled={saving}
+                className="w-full h-12 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-60 animate-in slide-in-from-bottom-2"
+                style={{ background: `linear-gradient(135deg, ${NAVY} 0%, ${TEAL} 100%)` }}
+              >
+                {saving ? "Updating…" : <><Send className="h-4 w-4" />Confirm Change to {selectedStatus}</>}
+              </button>
+            )}
 
           <button
             onClick={handleRunPrescreen}
@@ -522,7 +538,7 @@ const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap =
           </button>
 
           <p className="text-[10px] text-slate-400 italic">
-            * Applicant stays in their current column until you click "Confirm Move".
+            * Applicant stays in their current stage until you confirm the change.
           </p>
         </div>
 

@@ -371,15 +371,43 @@ const SettingsPanel = ({ onClose, onToast, currentUserRole }) => {
 const AdminPortal = () => {
   const navigate = useNavigate();
 
-  const [authChecked, setAuthChecked] = useState(false);
+const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) navigate('/login');
-      else setAuthChecked(true);
+      if (!user) {
+        localStorage.removeItem('userName');
+        localStorage.removeItem('role');
+        navigate('/login', { replace: true });
+      } else {
+        setAuthChecked(true);
+      }
     });
     return () => unsubscribe();
   }, [navigate]);
+
+  // ── Inactivity auto-logout (30 minutes) ──────────────────────────────────
+  useEffect(() => {
+    if (!authChecked) return;
+    const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 minutes
+    let timer;
+
+    const resetTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        auth.signOut();
+      }, INACTIVITY_LIMIT);
+    };
+
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+    events.forEach(e => window.addEventListener(e, resetTimer));
+    resetTimer();
+
+    return () => {
+      clearTimeout(timer);
+      events.forEach(e => window.removeEventListener(e, resetTimer));
+    };
+  }, [authChecked]);
 
   const {
     applicants, employees, loading: appLoading,

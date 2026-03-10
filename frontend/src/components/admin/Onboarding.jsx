@@ -78,14 +78,21 @@ const CandidateCard = ({ person, onStatusChange, onNotify, onSwitchTab }) => {
   const id = person.id || person.applicantid || person.applicant_id;
   const name = `${person.f_name} ${person.l_name}`;
 
-  const [checklist, setChecklist] = useState({ ...DEFAULT_CHECKLIST });
-  const [confirm,   setConfirm]   = useState(null); // 'onboard' | 'reject' | null
+const [checklist, setChecklist] = useState(() => ({
+    ...DEFAULT_CHECKLIST,
+    ...(person.onboarding_checklist || {}),
+  }));
+  const [confirm,   setConfirm]   = useState(null);
   const [loading,   setLoading]   = useState(false);
 
   const allChecked = Object.values(checklist).every(Boolean);
 
-  const toggleItem = (key) =>
-    setChecklist(prev => ({ ...prev, [key]: !prev[key] }));
+  const toggleItem = (key) => {
+    const updated = { ...checklist, [key]: !checklist[key] };
+    setChecklist(updated);
+    api.patch(`/applicants/${id}/onboarding-checklist`, { onboarding_checklist: updated })
+      .catch(err => console.error('Checklist auto-save failed:', err));
+  };
 
   const handleAction = useCallback(async () => {
     if (!confirm) return;

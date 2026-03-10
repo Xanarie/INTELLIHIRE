@@ -23,6 +23,24 @@ const NAVY_DARK = '#0D2645';
 const TEAL = '#00AECC';
 const TEAL_LIGHT = '#E6F7FB';
 
+const SectionLabel = ({ icon: Icon, color, children }) => (
+  <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${color}`}>
+    <Icon size={13} />
+    {children}
+  </div>
+);
+
+const JobTextArea = ({ value, onChange, placeholder, rows = 5, disabled }) => (
+  <textarea
+    rows={rows}
+    disabled={disabled}
+    className="w-full mt-1.5 bg-slate-50 border-2 border-transparent rounded-2xl px-4 py-3 text-sm transition-all outline-none resize-none disabled:opacity-60 leading-relaxed focus:border-[#00AECC]"
+    value={value}
+    onChange={onChange}
+    placeholder={placeholder}
+  />
+);
+
 const JobModal = ({ isOpen, onClose, onSave, initialData }) => {
   const jobId    = initialData?.id ?? null;
   const publicUrl = `${window.location.origin}/jobs/${jobId}`;
@@ -102,23 +120,6 @@ const JobModal = ({ isOpen, onClose, onSave, initialData }) => {
 
   if (!isOpen) return null;
 
-  const TextArea = ({ field, placeholder, rows = 5 }) => (
-    <textarea
-      rows={rows}
-      disabled={isSaving}
-      className="w-full mt-1.5 bg-slate-50 border-2 border-transparent rounded-2xl px-4 py-3 text-sm transition-all outline-none resize-none disabled:opacity-60 leading-relaxed focus:border-[#00AECC]"
-      value={formData[field]}
-      onChange={set(field)}
-      placeholder={placeholder}
-    />
-  );
-
-  const SectionLabel = ({ icon: Icon, color, children }) => (
-    <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${color}`}>
-      <Icon size={13} />
-      {children}
-    </div>
-  );
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
@@ -212,33 +213,29 @@ const JobModal = ({ isOpen, onClose, onSave, initialData }) => {
           {/* Job Summary */}
           <div className="bg-slate-50 rounded-2xl p-4 border-2 border-transparent hover:border-slate-200 transition-colors">
             <SectionLabel icon={FileText} color="text-slate-500">Job Summary</SectionLabel>
-            <TextArea field="job_summary" placeholder="Brief overview of the role and team..." rows={3} />
+            <JobTextArea value={formData.job_summary} onChange={set('job_summary')} placeholder="Brief overview of the role and team..." rows={3} disabled={isSaving} />
           </div>
 
           {/* Description sections */}
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-slate-50 rounded-2xl p-4 border-2 border-transparent hover:border-slate-200 transition-colors">
               <SectionLabel icon={ClipboardList} color="text-[#1A3C6E]">Key Responsibilities</SectionLabel>
-              <TextArea field="key_responsibilities"
-                placeholder={"- Manage applicant pipeline\n- Coordinate with hiring managers\n- Conduct initial screening calls"} />
+              <JobTextArea value={formData.key_responsibilities} onChange={set('key_responsibilities')} placeholder="Manage applicant pipeline\n- Coordinate with hiring managers\n- Conduct initial screening calls" rows={3} disabled={isSaving} />
               <p className="text-[9px] text-slate-300 mt-1 text-right">{formData.key_responsibilities.length} chars</p>
             </div>
             <div className="bg-slate-50 rounded-2xl p-4 border-2 border-transparent hover:border-slate-200 transition-colors">
               <SectionLabel icon={Star} color="text-amber-500">Required Qualifications</SectionLabel>
-              <TextArea field="required_qualifications"
-                placeholder={"- Bachelor's degree in any field\n- 2+ years in a similar role\n- Strong communication skills"} />
+              <JobTextArea value={formData.required_qualifications} onChange={set('required_qualifications')} placeholder="Bachelor's degree in any field\n- 2+ years in a similar role\n- Strong communication skills" rows={3} disabled={isSaving} />
               <p className="text-[9px] text-slate-300 mt-1 text-right">{formData.required_qualifications.length} chars</p>
             </div>
             <div className="bg-slate-50 rounded-2xl p-4 border-2 border-transparent hover:border-slate-200 transition-colors">
               <SectionLabel icon={Lightbulb} color="text-violet-500">Preferred Qualifications</SectionLabel>
-              <TextArea field="preferred_qualifications"
-                placeholder={"- Experience with ATS tools\n- Knowledge of BPO industry\n- Fluency in another language"} />
+              <JobTextArea value={formData.preferred_qualifications} onChange={set('preferred_qualifications')} placeholder="Experience with ATS tools\n- Knowledge of BPO industry\n- Fluency in another language" rows={3} disabled={isSaving} />
               <p className="text-[9px] text-slate-300 mt-1 text-right">{formData.preferred_qualifications.length} chars</p>
             </div>
             <div className="bg-slate-50 rounded-2xl p-4 border-2 border-transparent hover:border-slate-200 transition-colors">
               <SectionLabel icon={FileText} color="text-rose-500">Key Competencies</SectionLabel>
-              <TextArea field="key_competencies"
-                placeholder={"- Strong problem-solving skills\n- Excellent written communication\n- Team player"} />
+              <JobTextArea value={formData.key_competencies} onChange={set('key_competencies')} placeholder="- Strong problem-solving skills\n- Excellent written communication\n- Team player" rows={3} disabled={isSaving} />
               <p className="text-[9px] text-slate-300 mt-1 text-right">{formData.key_competencies.length} chars</p>
             </div>
           </div>
