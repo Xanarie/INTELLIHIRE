@@ -34,6 +34,20 @@ class MatchConfig:
     for_review:            float = 25.0      
 
 
+_active_config: MatchConfig = MatchConfig()
+
+
+def set_match_config(cfg: MatchConfig) -> None:
+    """Replace the module-level active config (called from admin router)."""
+    global _active_config
+    _active_config = cfg
+
+
+def get_match_config() -> MatchConfig:
+    """Return the current active config."""
+    return _active_config
+
+
 # ---------------------------------------------------------------------------
 # Bucket helper
 # ---------------------------------------------------------------------------
@@ -223,7 +237,7 @@ def score_applicant(
     - Auto mode: no must_haves supplied; keywords extracted from job_text.
       Uses w_auto_keyword / w_similarity_auto / w_experience_auto.
     """
-    cfg = cfg or MatchConfig()
+    cfg = cfg or _active_config
 
     cand_text = (candidate_text or "").strip().lower()
     job_lower  = (job_text or "").strip().lower()
