@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import axios from "axios";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +15,7 @@ import {
   ChevronRight, Pencil, Loader2,
 } from "lucide-react";
 
-import { api } from '../config/api';
+import { apiPublic } from '../config/api';
 
 // ── Dropdown option lists ─────────────────────────────────────────────────────
 const EDUCATION_OPTIONS = [
@@ -94,7 +94,7 @@ const ApplicantHub = () => {
   });
 
   useEffect(() => {
-    api.get('/api/applicants/jobs')
+    apiPublic.get('/api/applicants/jobs')
       .then(r => setAvailableJobs(Array.isArray(r.data) ? r.data : []))
       .catch(console.error);
   }, []);
@@ -113,7 +113,7 @@ const ApplicantHub = () => {
     const data = new FormData();
     Object.entries(formData).forEach(([k, v]) => { if (v !== null) data.append(k, v); });
     try {
-      await api.post('/api/applicants/', data, {
+      await apiPublic.post('/api/applicants/', data, {
           headers: { "Content-Type": "multipart/form-data" },
       });
       setStep(5);
