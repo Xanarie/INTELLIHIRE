@@ -380,11 +380,14 @@ const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap =
   };
 
   const handleConfirmMove = async () => {
-    try {
-      setSaving(true);
-      await api.patch(`/applicants/${applicantId}`, { hiring_status: selectedStatus });
-      await onRefresh();
-      setApplicant(prev => ({ ...prev, hiring_status: selectedStatus }));
+  if (selectedStatus === 'Offer' && (!endorsedPosition.trim() || endorsedPosition === '__none__')) 
+  {
+    alert('Please set a Final Endorsed Position before moving to Offer.');
+    return;
+  }
+  try {
+    setSaving(true);
+    await api.patch(`/applicants/${applicantId}`, { hiring_status: selectedStatus });
     } catch (err) { console.error(err); }
     finally { setSaving(false); }
   };

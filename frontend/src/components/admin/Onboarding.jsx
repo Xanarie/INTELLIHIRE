@@ -74,7 +74,7 @@ const ConfirmModal = ({ type, name, onConfirm, onCancel, loading }) => {
 };
 
 // ── Candidate Card ────────────────────────────────────────────────────────────
-const CandidateCard = ({ person, onStatusChange, onNotify }) => {
+const CandidateCard = ({ person, onStatusChange, onNotify, onSwitchTab }) => {
   const id = person.id || person.applicantid || person.applicant_id;
   const name = `${person.f_name} ${person.l_name}`;
 
@@ -92,7 +92,7 @@ const CandidateCard = ({ person, onStatusChange, onNotify }) => {
     try {
       setLoading(true);
       const newStatus = confirm === 'onboard' ? 'Archived' : 'Rejected';
-      await api.patch(`${api}/applicants/${id}`, { hiring_status: newStatus });
+      await api.patch(`/applicants/${id}`, { hiring_status: newStatus });
       if (onNotify) {
         const msg = newStatus === 'Archived'
           ? `fully onboarded ${name}`
@@ -100,13 +100,14 @@ const CandidateCard = ({ person, onStatusChange, onNotify }) => {
         onNotify(msg, newStatus === 'Archived' ? 'onboarding' : 'recruitment', id);
       }
       onStatusChange(id, newStatus);
+      if (onSwitchTab) onSwitchTab('recruitment');
     } catch (err) {
       console.error('Status update failed:', err);
     } finally {
       setLoading(false);
       setConfirm(null);
     }
-  }, [confirm, id, onStatusChange]);
+  }, [confirm, id, name, onStatusChange, onNotify, onSwitchTab]);
 
   return (
     <>
@@ -122,7 +123,7 @@ const CandidateCard = ({ person, onStatusChange, onNotify }) => {
         <div className="flex items-center gap-1.5 mb-4">
           <Briefcase size={10} className="text-blue-300 shrink-0" />
           <p className="text-xs font-bold text-blue-400 uppercase tracking-wider truncate">
-            {person.applied_position || 'New Hire'}
+            {person.endorsed_position || person.applied_position || 'New Hire'}
           </p>
         </div>
 
@@ -200,7 +201,7 @@ const CandidateCard = ({ person, onStatusChange, onNotify }) => {
 };
 
 // ── Main Component ────────────────────────────────────────────────────────────
-const OnboardingTab = ({ applicants = [], jobs = [], onRefresh, onSelectApplicant, onNotify }) => {
+const OnboardingTab = ({ applicants = [], jobs = [], onRefresh, onSelectApplicant, onNotify, onSwitchTab }) => {
   const [localApplicants, setLocalApplicants] = useState(applicants);
 
   // Keep in sync when parent refreshes
@@ -260,6 +261,7 @@ const OnboardingTab = ({ applicants = [], jobs = [], onRefresh, onSelectApplican
                   person={person}
                   onStatusChange={handleStatusChange}
                   onNotify={onNotify}
+                  onSwitchTab={onSwitchTab}
                 />
               ))}
             </div>

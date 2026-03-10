@@ -670,6 +670,7 @@ const AdminPortal = () => {
               onRefresh={refresh}
               onSelectApplicant={setSelectedApplicantId}
               onNotify={pushNotification}
+              onSwitchTab={switchTab}
             />
           </div>
         )}
