@@ -18,7 +18,7 @@ from app.schemas import (
 )
 from app.ai.pdf_extract  import extract_resume_text
 from app.ai.resume_score import score_resume_quality
-from app.ai.matching     import score_applicant
+from app.ai.matching     import score_applicant, set_match_config, MatchConfig
 from app.ai.summarizer   import summarize_prescreen
 from app.routers.logs    import write_log
 
@@ -71,6 +71,11 @@ def _extract_focus_text(resume_bytes: bytes, suffix: str = ".pdf") -> str:
 
 def _applicant_name(data: dict) -> str:
     return f"{data.get('f_name', '')} {data.get('l_name', '')}".strip() or "Unknown"
+
+def _build_match_config(adv: dict) -> MatchConfig:
+    """Safely construct a MatchConfig from a dict, ignoring unknown keys."""
+    valid = {k: v for k, v in adv.items() if k in MatchConfig.__dataclass_fields__}
+    return MatchConfig(**valid)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -150,23 +155,23 @@ def save_recruiter_notes(applicant_id: str, payload: dict, actor: str = Depends(
     return {"ok": True, "recruiter_notes": notes}
 
 @router.get("/match-config")
-def get_match_config():
+def get_match_config_endpoint():
     db  = get_db()
     doc = db.collection("config").document("match_config").get()
     if not doc.exists:
         return {}
     data = doc.to_dict()
-    from app.ai.matching import set_match_config
-    set_match_config(data.get("advanced", {}))
+    adv = data.get("advanced", {})
+    set_match_config(_build_match_config(adv))
     return data
 
 
 @router.post("/match-config")
-def save_match_config(payload: dict, actor: str = Depends(get_actor)):
+def save_match_config_endpoint(payload: dict, actor: str = Depends(get_actor)):
     db = get_db()
     db.collection("config").document("match_config").set(payload)
-    from app.ai.matching import set_match_config
-    set_match_config(payload.get("advanced", {}))
+    adv = payload.get("advanced", {})
+    set_match_config(_build_match_config(adv))
     write_log(
         action="config_updated", entity_type="system",
         entity_id="match_config", entity_name="Match Scoring Config",
