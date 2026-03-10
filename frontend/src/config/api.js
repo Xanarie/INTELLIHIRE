@@ -1,9 +1,9 @@
 import axios from 'axios';
 
-export const API_BASE = import.meta.env.VITE_API_URL 
-  ? `${import.meta.env.VITE_API_URL}/api/admin`
-  : 'http://localhost:8000/api/admin';
-export const API_PUBLIC = import.meta.env.VITE_API_PUBLIC_URL ?? 'http://localhost:8000';
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+export const API_BASE = `${BASE_URL}/api/admin`;
+export const API_PUBLIC = BASE_URL;
 
 export const api = axios.create({
   baseURL: API_BASE,
@@ -15,8 +15,6 @@ export const apiPublic = axios.create({
   timeout: 60_000,
 });
 
-// Inject the logged-in user's name on every admin request so the backend
-// can attribute activity log entries correctly.
 api.interceptors.request.use(config => {
   const name = localStorage.getItem('userName');
   if (name) config.headers['X-Actor-Name'] = name;
