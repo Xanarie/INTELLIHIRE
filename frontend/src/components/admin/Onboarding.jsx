@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import axios from 'axios';
 import { CheckSquare, Square, UserCheck, XCircle, Building2, Briefcase, AlertTriangle } from 'lucide-react';
 
 import { api } from '../../config/api';
@@ -93,7 +92,7 @@ const CandidateCard = ({ person, onStatusChange, onNotify }) => {
     try {
       setLoading(true);
       const newStatus = confirm === 'onboard' ? 'Archived' : 'Rejected';
-      await axios.patch(`${api}/applicants/${id}`, { hiring_status: newStatus });
+      await api.patch(`${api}/applicants/${id}`, { hiring_status: newStatus });
       if (onNotify) {
         const msg = newStatus === 'Archived'
           ? `fully onboarded ${name}`
