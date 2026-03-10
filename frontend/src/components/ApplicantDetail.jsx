@@ -268,6 +268,8 @@ const BreakdownModal = ({ applicant, onClose }) => {
   );
 };
 
+
+
 // ── AI Match Insights ─────────────────────────────────────────────────────────
 
 const AIMatchInsights = ({ applicant, topRole }) => {
@@ -335,6 +337,7 @@ const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap =
   const [endorsedPosition, setEndorsedPosition] = useState("");
   const [savingNotes,      setSavingNotes]      = useState(false);
   const [notesSaved,       setNotesSaved]       = useState(false);
+  const [showEndorsedRequiredModal, setShowEndorsedRequiredModal] = useState(false);
 
   const fetchApplicant = async () => {
     if (!applicantId) return;
@@ -380,16 +383,22 @@ const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap =
   };
 
   const handleConfirmMove = async () => {
-  if (selectedStatus === 'Offer' && (!endorsedPosition.trim() || endorsedPosition === '__none__')) 
-  {
-    alert('Please set a Final Endorsed Position before moving to Offer.');
-    return;
+     if (
+      applicant.hiring_status === 'Offer' &&
+      (selectedStatus === 'Accepted' || selectedStatus === 'Rejected') &&
+     (!endorsedPosition.trim() || endorsedPosition === '__none__')
+    ) {
+    setShowEndorsedRequiredModal(true);  // show the modal
+    return;  // stop moving
   }
-  try {
+   try {
     setSaving(true);
     await api.patch(`/applicants/${applicantId}`, { hiring_status: selectedStatus });
-    } catch (err) { console.error(err); }
-    finally { setSaving(false); }
+    } catch (err) { 
+    console.error(err); 
+   } finally { 
+    setSaving(false); 
+    }
   };
 
   const handleRunPrescreen = async () => {
@@ -550,6 +559,7 @@ const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap =
             onFocus={e => e.target.style.borderColor = TEAL}
             onBlur={e  => e.target.style.borderColor = 'transparent'}
           />
+          
 
           <div className="space-y-3 pt-2">
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -582,9 +592,7 @@ const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap =
             <p className="text-[10px] text-slate-400 italic">
               Saved together with recruiter notes.
             </p>
-          </div>
-
-          <button
+            <button
             onClick={handleSaveNotes}
             disabled={savingNotes}
             className="w-full py-3 rounded-xl text-white text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-60 flex items-center justify-center gap-2"
@@ -598,10 +606,35 @@ const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap =
                 </svg>
                 Saving…
               </>
-            ) : notesSaved ? "✓ Saved" : "Save"}
+            ) : notesSaved ? "✓ Notes Saved" : "Save Notes"}
           </button>
-
+          </div>
+          {showEndorsedRequiredModal && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[300] flex items-center justify-center p-4"
+          onClick={() => setShowEndorsedRequiredModal(false)}
+        >
+        <div
+          className="bg-white rounded-3xl w-full max-w-sm shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="p-6 text-center">
+          <p className="text-sm font-bold text-rose-600 uppercase mb-2">Final Endorsed Position Required</p>
+          <p className="text-xs text-slate-600 mb-4">
+          You must select a Final Endorsed Position before moving this applicant to Accepted or Rejected.
+          </p>
+        <button
+          onClick={() => setShowEndorsedRequiredModal(false)}
+          className="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs transition-colors"
+        >
+          OK
+          </button>
         </div>
+      </div>
+   </div>
+      )}
+        </div>
+        
 
       </CardContent>
     </Card>
