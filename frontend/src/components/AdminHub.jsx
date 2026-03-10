@@ -694,6 +694,7 @@ const AdminPortal = () => {
         {selectedApplicantId && (
           <ApplicantDetail
             applicantId={selectedApplicantId}
+            jobs={jobs}
             flagMap={flagMap}
             onClose={() => setSelectedApplicantId(null)}
             onRefresh={refresh}
