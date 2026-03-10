@@ -400,12 +400,14 @@ const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap =
       (selectedStatus === 'Accepted' || selectedStatus === 'Rejected') &&
      (!endorsedPosition.trim() || endorsedPosition === '__none__')
     ) {
-    setShowEndorsedRequiredModal(true);  // show the modal
-    return;  // stop moving
+    setShowEndorsedRequiredModal(true);
+    return;
   }
    try {
     setSaving(true);
     await api.patch(`/applicants/${applicantId}`, { hiring_status: selectedStatus });
+    await fetchApplicant();
+    if (onRefresh) onRefresh();
     } catch (err) { 
     console.error(err); 
    } finally { 

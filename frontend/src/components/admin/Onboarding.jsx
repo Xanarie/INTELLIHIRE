@@ -74,16 +74,17 @@ const ConfirmModal = ({ type, name, onConfirm, onCancel, loading }) => {
 };
 
 // ── Candidate Card ────────────────────────────────────────────────────────────
-const CandidateCard = ({ person, onStatusChange, onNotify, onSwitchTab }) => {
+const CandidateCard = ({ person, onStatusChange, onNotify, onSwitchTab, onRefresh }) => {
   const id = person.id || person.applicantid || person.applicant_id;
   const name = `${person.f_name} ${person.l_name}`;
 
-const [checklist, setChecklist] = useState(() => ({
+  const [checklist, setChecklist] = useState(() => ({
     ...DEFAULT_CHECKLIST,
     ...(person.onboarding_checklist || {}),
   }));
   const [confirm,   setConfirm]   = useState(null);
   const [loading,   setLoading]   = useState(false);
+  const [saved,     setSaved]     = useState(false);
 
   const allChecked = Object.values(checklist).every(Boolean);
 
@@ -91,6 +92,11 @@ const [checklist, setChecklist] = useState(() => ({
     const updated = { ...checklist, [key]: !checklist[key] };
     setChecklist(updated);
     api.patch(`/applicants/${id}/onboarding-checklist`, { onboarding_checklist: updated })
+      .then(() => {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 1500);
+        if (onRefresh) onRefresh();
+      })
       .catch(err => console.error('Checklist auto-save failed:', err));
   };
 
@@ -157,7 +163,14 @@ const [checklist, setChecklist] = useState(() => ({
         <div className="mb-4">
           <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 mb-1.5">
             <span>Progress</span>
-            <span>{Object.values(checklist).filter(Boolean).length} / {CHECKLIST_ITEMS.length}</span>
+            <div className="flex items-center gap-2">
+              {saved && (
+                <span className="text-[9px] font-black text-emerald-500 animate-in fade-in duration-200">
+                  ✓ Saved
+                </span>
+              )}
+              <span>{Object.values(checklist).filter(Boolean).length} / {CHECKLIST_ITEMS.length}</span>
+            </div>
           </div>
           <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
             <div
@@ -269,6 +282,7 @@ const OnboardingTab = ({ applicants = [], jobs = [], onRefresh, onSelectApplican
                   onStatusChange={handleStatusChange}
                   onNotify={onNotify}
                   onSwitchTab={onSwitchTab}
+                  onRefresh={onRefresh}
                 />
               ))}
             </div>
