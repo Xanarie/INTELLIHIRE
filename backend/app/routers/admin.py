@@ -149,6 +149,32 @@ def save_recruiter_notes(applicant_id: str, payload: dict, actor: str = Depends(
     )
     return {"ok": True, "recruiter_notes": notes}
 
+@router.get("/match-config")
+def get_match_config():
+    db  = get_db()
+    doc = db.collection("config").document("match_config").get()
+    if not doc.exists:
+        return {}
+    data = doc.to_dict()
+    from app.ai.matching import set_match_config
+    set_match_config(data.get("advanced", {}))
+    return data
+
+
+@router.post("/match-config")
+def save_match_config(payload: dict, actor: str = Depends(get_actor)):
+    db = get_db()
+    db.collection("config").document("match_config").set(payload)
+    from app.ai.matching import set_match_config
+    set_match_config(payload.get("advanced", {}))
+    write_log(
+        action="config_updated", entity_type="system",
+        entity_id="match_config", entity_name="Match Scoring Config",
+        details="Match scoring configuration updated.",
+        performed_by=actor,
+    )
+    return {"ok": True}
+
 
 @router.delete("/applicants/{applicant_id}")
 def delete_applicant(applicant_id: str, actor: str = Depends(get_actor)):

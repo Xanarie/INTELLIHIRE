@@ -128,7 +128,7 @@ _ROLE_TITLE_RE = re.compile(
 )
 
 
-def extract_job_keywords(job_text: str, max_keywords: int = 20) -> List[str]:
+def extract_job_keywords(job_text: str, max_keywords: int = 10) -> List[str]:
     """
     Returns a deduplicated list of normalised skill/role terms extracted
     from a job description.
@@ -232,6 +232,7 @@ def score_applicant(
 
     # ── Semantic similarity ────────────────────────────────────────────────
     sim = similarity(cand_text, job_lower)
+    sim = min(sim / 0.20, 1.0)
 
     # ── Keyword / must-have coverage ───────────────────────────────────────
     if explicit_mode:

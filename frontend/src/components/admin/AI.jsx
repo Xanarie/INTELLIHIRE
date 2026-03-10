@@ -1,9 +1,9 @@
+// frontend/src/components/admin/AI.jsx
 import React, { useState, useMemo, useEffect } from 'react';
 import { api } from '@/config/api';
-import { SlidersHorizontal, Trophy, Search, FileText, Sparkles, Briefcase, Loader2, Play, CheckCircle2, XCircle, RotateCcw } from 'lucide-react';
+import { SlidersHorizontal, Trophy, Search, FileText, Sparkles, Briefcase, Loader2, Play, CheckCircle2, XCircle, RotateCcw, ChevronDown } from 'lucide-react';
 import CandidateModal from '../modals/CandidateModal';
 
-// ── Resume scoring constants ──────────────────────────────────────────────
 const DEFAULT_WEIGHTS = { structure: 30, experience: 30, impact: 25, clarity: 15 };
 const WEIGHT_META = [
   { key: 'structure',  label: 'Resume Structure',     color: '#2A5C9A', desc: 'Section headings, bullet formatting, organisation' },
@@ -13,14 +13,25 @@ const WEIGHT_META = [
 ];
 const STORAGE_KEY = 'intellihire_score_weights';
 
-// ── Match scoring constants ──────────────────────────────────────────────
 const DEFAULT_MATCH_WEIGHTS = { keyword: 35, semantic: 50, experience: 15 };
 const MATCH_WEIGHT_META = [
-  { key: 'keyword',    label: 'Keyword Coverage',    color: '#2A5C9A', desc: 'How well resume keywords match the job description' },
-  { key: 'semantic',   label: 'Semantic Similarity',  color: '#7C3AED', desc: 'TF-IDF cosine similarity between resume and job text' },
-  { key: 'experience', label: 'Experience Fit',       color: '#10B981', desc: 'Candidate experience years vs job requirement' },
+  { key: 'keyword',    label: 'Keyword Coverage',   color: '#2A5C9A', desc: 'How well resume keywords match the job description' },
+  { key: 'semantic',   label: 'Semantic Similarity', color: '#7C3AED', desc: 'TF-IDF cosine similarity between resume and job text' },
+  { key: 'experience', label: 'Experience Fit',      color: '#10B981', desc: 'Candidate experience years vs job requirement' },
 ];
-const MATCH_STORAGE_KEY = 'intellihire_match_weights';
+const MATCH_STORAGE_KEY  = 'intellihire_match_weights';
+const MATCH_ADVANCED_KEY = 'intellihire_match_advanced';
+
+const MATCH_ADVANCED_DEFAULTS = {
+  max_keywords:   8,
+  sim_norm_cap:   0.20,
+  knockout_ratio: 0.35,
+  knockout_cap:   55.0,
+  t_highly:       70.0,
+  t_moderately:   55.0,
+  t_qualified:    40.0,
+  t_for_review:   25.0,
+};
 
 function recomputeScore(breakdown, weights) {
   if (!breakdown) return null;
@@ -140,7 +151,7 @@ const Panel = ({ icon: Icon, iconBg, title, subtitle, action, children }) => (
 // ── Main ──────────────────────────────────────────────────────────────────────
 const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
 
-  // ── Weights ──────────────────────────────────────────────────────────────
+  // ── Resume Weights ────────────────────────────────────────────────────────
   const [weights, setWeights] = useState(() => {
     try {
       const s = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -169,14 +180,24 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
 
   const totalWeight = WEIGHT_META.reduce((s, m) => s + weights[m.key], 0);
 
-  // ── NEW: Match Weights ────────────────────────────────────────────────────
+  // ── Match Weights + Advanced ──────────────────────────────────────────────
   const [matchWeights, setMatchWeights] = useState(() => {
     try {
       const s = JSON.parse(localStorage.getItem(MATCH_STORAGE_KEY));
-      return s ? { ...DEFAULT_MATCH_WEIGHTS, ...s } : DEFAULT_MATCH_WEIGHTS;
-    } catch { return DEFAULT_MATCH_WEIGHTS; }
+      return s ? { ...DEFAULT_MATCH_WEIGHTS, ...s } : { ...DEFAULT_MATCH_WEIGHTS };
+    } catch { return { ...DEFAULT_MATCH_WEIGHTS }; }
   });
-  const [matchSaved, setMatchSaved] = useState(false);
+
+  const [matchAdvanced, setMatchAdvanced] = useState(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem(MATCH_ADVANCED_KEY));
+      return s ? { ...MATCH_ADVANCED_DEFAULTS, ...s } : { ...MATCH_ADVANCED_DEFAULTS };
+    } catch { return { ...MATCH_ADVANCED_DEFAULTS }; }
+  });
+
+  const [matchExpanded, setMatchExpanded] = useState(false);
+  const [matchSaving,   setMatchSaving]   = useState(false);
+  const [matchSaved,    setMatchSaved]    = useState(false);
 
   const setMatchWeight = (key, raw) => {
     const val = Math.max(0, Math.min(100, parseInt(raw) || 0));
@@ -184,17 +205,43 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
     setMatchSaved(false);
   };
 
-  const saveMatchWeights = () => {
-    localStorage.setItem(MATCH_STORAGE_KEY, JSON.stringify(matchWeights));
-    setMatchSaved(true);
-    setTimeout(() => setMatchSaved(false), 2000);
-  };
-
-  const resetMatchWeights = () => {
-    setMatchWeights(DEFAULT_MATCH_WEIGHTS);
-    localStorage.removeItem(MATCH_STORAGE_KEY);
+  const setAdvanced = (key, raw, isFloat = false) => {
+    const val = isFloat ? Math.max(0, parseFloat(raw) || 0) : Math.max(0, parseInt(raw) || 0);
+    setMatchAdvanced(prev => ({ ...prev, [key]: val }));
     setMatchSaved(false);
   };
+
+  const saveMatchConfig = async () => {
+    try {
+      setMatchSaving(true);
+      await api.post('/match-config', { weights: matchWeights, advanced: matchAdvanced });
+      localStorage.setItem(MATCH_STORAGE_KEY,  JSON.stringify(matchWeights));
+      localStorage.setItem(MATCH_ADVANCED_KEY, JSON.stringify(matchAdvanced));
+      setMatchSaved(true);
+      setTimeout(() => setMatchSaved(false), 2000);
+    } catch (err) {
+      console.error('Failed to save match config:', err);
+    } finally {
+      setMatchSaving(false);
+    }
+  };
+
+  const resetMatchConfig = async () => {
+    setMatchWeights({ ...DEFAULT_MATCH_WEIGHTS });
+    setMatchAdvanced({ ...MATCH_ADVANCED_DEFAULTS });
+    localStorage.removeItem(MATCH_STORAGE_KEY);
+    localStorage.removeItem(MATCH_ADVANCED_KEY);
+    try { await api.post('/match-config', { weights: DEFAULT_MATCH_WEIGHTS, advanced: MATCH_ADVANCED_DEFAULTS }); }
+    catch {}
+    setMatchSaved(false);
+  };
+
+  useEffect(() => {
+    api.get('/match-config').then(res => {
+      if (res.data?.weights)  setMatchWeights(w => ({ ...w,  ...res.data.weights  }));
+      if (res.data?.advanced) setMatchAdvanced(a => ({ ...a, ...res.data.advanced }));
+    }).catch(() => {});
+  }, []);
 
   const totalMatchWeight = MATCH_WEIGHT_META.reduce((s, m) => s + matchWeights[m.key], 0);
 
@@ -229,7 +276,7 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
   const [screenFilter, setScreenFilter] = useState('all');
   const [smartResults, setSmartResults] = useState([]);
   const [smartLoading, setSmartLoading] = useState(false);
-  const [smartError, setSmartError]     = useState(null);
+  const [smartError,   setSmartError]   = useState(null);
 
   useEffect(() => {
     if (!selectedRole && roleList.length) setSelectedRole(roleList[0]);
@@ -254,7 +301,6 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
       return;
     }
 
-    // 'all' mode — fetch from backend with abort support
     const controller = new AbortController();
     setSmartLoading(true);
     setSmartError(null);
@@ -288,9 +334,9 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
   const [bulkRunning,  setBulkRunning]  = useState(false);
   const [bulkProgress, setBulkProgress] = useState(0);
   const [bulkTotal,    setBulkTotal]    = useState(0);
-  const [bulkDone,     setBulkDone]     = useState(null); // null = idle, number = completed count
-  const [bulkErrors,   setBulkErrors]   = useState([]);   // names that failed
-  const [bulkFilter,   setBulkFilter]   = useState('unscreened'); // 'unscreened' | 'all'
+  const [bulkDone,     setBulkDone]     = useState(null);
+  const [bulkErrors,   setBulkErrors]   = useState([]);
+  const [bulkFilter,   setBulkFilter]   = useState('unscreened');
 
   const unscreenedCount = useMemo(
     () => applicants.filter(a => a.ai_resume_score == null).length,
@@ -417,51 +463,114 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
         icon={SlidersHorizontal}
         iconBg="bg-[#1A3C6E]"
         title="Match Scoring Adjustment"
-        subtitle="Set how much each dimension contributes to the overall job match score"
+        subtitle="Configure how candidates are scored against job descriptions"
         action={
           <>
-            <button onClick={resetMatchWeights}
+            <button onClick={resetMatchConfig}
               className="text-[10px] font-black text-slate-400 hover:text-slate-700 uppercase tracking-wide px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-all">
               Reset
             </button>
-            <button onClick={saveMatchWeights}
-              className={`text-[10px] font-black uppercase tracking-wide px-4 py-1.5 rounded-xl transition-all ${
+            <button
+              onClick={() => setMatchExpanded(e => !e)}
+              className="flex items-center gap-1 text-[10px] font-black text-slate-500 hover:text-slate-700 uppercase tracking-wide px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-all"
+            >
+              Advanced
+              <ChevronDown size={12} className={`transition-transform duration-200 ${matchExpanded ? 'rotate-180' : ''}`} />
+            </button>
+            <button
+              onClick={saveMatchConfig}
+              disabled={matchSaving}
+              className={`text-[10px] font-black uppercase tracking-wide px-4 py-1.5 rounded-xl transition-all disabled:opacity-60 ${
                 matchSaved ? 'bg-emerald-500 text-white' : 'bg-[#1A3C6E] text-white hover:bg-[#0D2645]'
               }`}>
-              {matchSaved ? '✓ Saved' : 'Save Weights'}
+              {matchSaving ? '…' : matchSaved ? '✓ Saved' : 'Save'}
             </button>
           </>
         }
       >
-        <div className="flex gap-8 items-start">
-          <div className="flex-1 space-y-3">
-            {MATCH_WEIGHT_META.map(({ key, label, color, desc }) => (
-              <div key={key} className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-100 hover:border-slate-200 bg-slate-50/50 transition-colors">
-                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-slate-700 leading-tight">{label}</p>
-                  <p className="text-[9px] text-slate-400 truncate">{desc}</p>
-                </div>
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={matchWeights[key]}
-                  onChange={e => setMatchWeight(key, e.target.value)}
-                  className="w-14 text-center text-sm font-black rounded-xl border-2 border-slate-200 focus:border-[#1A3C6E] outline-none py-1.5 bg-white transition-all shrink-0"
-                  style={{ color }}
-                />
+        {/* Score weights — always visible */}
+        <div className="space-y-2">
+          {MATCH_WEIGHT_META.map(({ key, label, color, desc }) => (
+            <div key={key} className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-100 hover:border-slate-200 bg-slate-50/50 transition-colors">
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-slate-700 leading-tight">{label}</p>
+                <p className="text-[9px] text-slate-400 truncate">{desc}</p>
               </div>
-            ))}
-
-            {/* Total */}
-            <div className="flex justify-end pt-1 pr-1">
-              <span className={`text-[10px] font-black ${totalMatchWeight === 100 ? 'text-emerald-600' : 'text-amber-500'}`}>
-                Total: {totalMatchWeight}{totalMatchWeight !== 100 ? ' — will be normalised' : ' ✓'}
-              </span>
+              <input
+                type="number" min={0} max={100}
+                value={matchWeights[key]}
+                onChange={e => setMatchWeight(key, e.target.value)}
+                className="w-14 text-center text-sm font-black rounded-xl border-2 border-slate-200 focus:border-[#1A3C6E] outline-none py-1.5 bg-white transition-all shrink-0"
+                style={{ color }}
+              />
             </div>
+          ))}
+          <div className="flex justify-end pr-1">
+            <span className={`text-[10px] font-black ${totalMatchWeight === 100 ? 'text-emerald-600' : 'text-amber-500'}`}>
+              Total: {totalMatchWeight}{totalMatchWeight !== 100 ? ' — will be normalised' : ' ✓'}
+            </span>
           </div>
         </div>
+
+        {/* Advanced — collapsible */}
+        {matchExpanded && (
+          <div className="mt-5 pt-5 border-t border-slate-100 space-y-5">
+
+            {/* Bucket Thresholds */}
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Score Bucket Thresholds</p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { key: 't_highly',     label: 'Highly Qualified',    color: '#10B981' },
+                  { key: 't_moderately', label: 'Moderately Qualified', color: '#3B82F6' },
+                  { key: 't_qualified',  label: 'Qualified',            color: '#F59E0B' },
+                  { key: 't_for_review', label: 'For Review',           color: '#F97316' },
+                ].map(({ key, label, color }) => (
+                  <div key={key} className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-slate-100 bg-slate-50/50">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                    <p className="text-[10px] font-bold text-slate-600 flex-1 truncate">{label}</p>
+                    <input
+                      type="number" min={0} max={100} step={1}
+                      value={matchAdvanced[key]}
+                      onChange={e => setAdvanced(key, e.target.value, true)}
+                      className="w-12 text-center text-xs font-black rounded-lg border-2 border-slate-200 focus:border-[#1A3C6E] outline-none py-1 bg-white transition-all shrink-0"
+                      style={{ color }}
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="text-[9px] text-slate-300 mt-2 pl-1">Scores below "For Review" threshold = Not Qualified</p>
+            </div>
+
+            {/* Keyword & Similarity Settings */}
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Keyword & Similarity Settings</p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { key: 'max_keywords',   label: 'Max Keywords',      desc: 'Keywords extracted per job',     float: false, step: 1    },
+                  { key: 'sim_norm_cap',   label: 'Similarity Cap',     desc: 'TF-IDF normalisation ceiling',  float: true,  step: 0.01 },
+                  { key: 'knockout_ratio', label: 'Knockout Threshold', desc: 'Min keyword match ratio (0–1)', float: true,  step: 0.05 },
+                  { key: 'knockout_cap',   label: 'Knockout Score Cap', desc: 'Max score when knocked out',    float: true,  step: 1    },
+                ].map(({ key, label, desc, float, step }) => (
+                  <div key={key} className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-slate-100 bg-slate-50/50">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-bold text-slate-700 leading-tight">{label}</p>
+                      <p className="text-[9px] text-slate-400 truncate">{desc}</p>
+                    </div>
+                    <input
+                      type="number" step={step}
+                      value={matchAdvanced[key]}
+                      onChange={e => setAdvanced(key, e.target.value, float)}
+                      className="w-14 text-center text-xs font-black rounded-lg border-2 border-slate-200 focus:border-[#1A3C6E] outline-none py-1 bg-white transition-all shrink-0 text-slate-700"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+        )}
       </Panel>
 
       {/* 3. Bulk Prescreen */}
@@ -472,7 +581,6 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
         subtitle="Run AI prescreening on multiple applicants at once"
         action={
           <div className="flex items-center gap-2">
-            {/* Filter toggle */}
             <div className="flex bg-slate-100 rounded-xl p-1">
               {[
                 { val: 'unscreened', label: `Unscreened (${unscreenedCount})` },
@@ -491,7 +599,6 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
               ))}
             </div>
 
-            {/* Run / reset button */}
             {bulkDone !== null ? (
               <button
                 onClick={resetBulk}
@@ -513,14 +620,13 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
           </div>
         }
       >
-        {/* Idle state */}
         {!bulkRunning && bulkDone === null && (
           <div className="flex items-center gap-6 py-2">
             <div className="flex-1 grid grid-cols-3 gap-4">
               {[
-                { label: 'Total Applicants',  value: applicants.length,                      color: '#1A3C6E' },
-                { label: 'Already Screened',  value: applicants.length - unscreenedCount,    color: '#00AECC' },
-                { label: 'Pending Screening', value: unscreenedCount,                        color: unscreenedCount > 0 ? '#F59E0B' : '#10B981' },
+                { label: 'Total Applicants',  value: applicants.length,                   color: '#1A3C6E' },
+                { label: 'Already Screened',  value: applicants.length - unscreenedCount, color: '#00AECC' },
+                { label: 'Pending Screening', value: unscreenedCount,                     color: unscreenedCount > 0 ? '#F59E0B' : '#10B981' },
               ].map(({ label, value, color }) => (
                 <div key={label} className="text-center px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100">
                   <p className="text-2xl font-black" style={{ color }}>{value}</p>
@@ -531,7 +637,6 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
           </div>
         )}
 
-        {/* Running state */}
         {bulkRunning && (
           <div className="py-4 space-y-3">
             <div className="flex items-center justify-between text-xs">
@@ -551,10 +656,8 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
           </div>
         )}
 
-        {/* Done state */}
         {!bulkRunning && bulkDone !== null && (
           <div className="py-2 space-y-3">
-            {/* Success */}
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
                 <CheckCircle2 size={20} className="text-emerald-500" />
@@ -565,7 +668,6 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
               </div>
             </div>
 
-            {/* Errors */}
             {bulkErrors.length > 0 && (
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center shrink-0">
@@ -632,7 +734,6 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
             </select>
           }
         >
-          {/* Toggle */}
           <div className="flex items-center gap-1 mb-4 bg-slate-100 p-1 rounded-xl w-fit">
             {[{ val: 'all', label: 'All Candidates' }, { val: 'applied', label: 'Only Applied' }].map(({ val, label }) => (
               <button
@@ -647,7 +748,6 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
             ))}
           </div>
 
-          {/* Content */}
           {smartLoading ? (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
               <Loader2 size={24} className="text-violet-400 animate-spin" />
