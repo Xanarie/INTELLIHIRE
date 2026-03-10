@@ -69,6 +69,9 @@ const PrimaryBtn = ({ onClick, disabled, children, className = "" }) => (
   </button>
 );
 
+const FieldError = ({ msg }) =>
+  msg ? <p className="text-xs text-rose-500 mt-1">{msg}</p> : null;
+
 const ApplicantHub = () => {
   const [step, setStep]       = useState(1);
   const location              = useLocation();
@@ -99,7 +102,33 @@ const ApplicantHub = () => {
       .catch(console.error);
   }, []);
 
-  const nextStep = () => setStep(s => s + 1);
+  const [errors, setErrors] = useState({});
+
+  const validateStep = () => {
+    const e = {};
+    if (step === 1) {
+      if (!formData.f_name.trim())              e.f_name    = 'Required';
+      if (!formData.l_name.trim())              e.l_name    = 'Required';
+      if (!formData.age || Number(formData.age) < 18) e.age = 'Must be 18+';
+      if (!formData.email.trim())               e.email     = 'Required';
+      if (!formData.phone.trim())               e.phone     = 'Required';
+      if (!formData.education)                  e.education = 'Required';
+    }
+    if (step === 2) {
+      if (!formData.current_city.trim())        e.current_city     = 'Required';
+      if (!formData.current_province.trim())    e.current_province = 'Required';
+      if (!formData.home_address.trim())        e.home_address     = 'Required';
+      if (!formData.app_source)                 e.app_source       = 'Required';
+    }
+    if (step === 3) {
+      if (!formData.applied_position)           e.applied_position = 'Please select a position';
+      if (!formData.resume)                     e.resume           = 'Please upload your resume';
+    }
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const nextStep = () => { if (validateStep()) { setErrors({}); setStep(s => s + 1); } };
   const prevStep = () => setStep(s => s - 1);
 
   const handleChange      = e => setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -198,10 +227,12 @@ const ApplicantHub = () => {
                 <div>
                   <LabelText>First Name</LabelText>
                   <Input name="f_name" value={formData.f_name} onChange={handleChange} placeholder="Juan" className="rounded-xl h-11 bg-slate-50 border-slate-200" />
+                  <FieldError msg={errors.f_name} />
                 </div>
                 <div>
                   <LabelText>Last Name</LabelText>
                   <Input name="l_name" value={formData.l_name} onChange={handleChange} placeholder="Dela Cruz" className="rounded-xl h-11 bg-slate-50 border-slate-200" />
+                  <FieldError msg={errors.l_name} />
                 </div>
               </div>
 
@@ -209,6 +240,7 @@ const ApplicantHub = () => {
                 <div>
                   <LabelText>Age</LabelText>
                   <Input name="age" type="number" value={formData.age} onChange={handleChange} placeholder="25" className="rounded-xl h-11 bg-slate-50 border-slate-200" />
+                  <FieldError msg={errors.age} />
                 </div>
                 <div>
                   <LabelText>Gender</LabelText>
@@ -230,27 +262,32 @@ const ApplicantHub = () => {
               <div>
                 <LabelText>Email Address</LabelText>
                 <Input name="email" type="email" value={formData.email} onChange={handleChange} placeholder="juan@email.com" className="rounded-xl h-11 bg-slate-50 border-slate-200" />
+                <FieldError msg={errors.email} />
               </div>
 
               <div>
                 <LabelText>Phone Number</LabelText>
                 <Input name="phone" value={formData.phone} onChange={handlePhoneChange} placeholder="09XXXXXXXXX" className="rounded-xl h-11 bg-slate-50 border-slate-200" />
+                <FieldError msg={errors.phone} />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <LabelText>City</LabelText>
                   <Input name="current_city" value={formData.current_city} onChange={handleChange} placeholder="Cebu City" className="rounded-xl h-11 bg-slate-50 border-slate-200" />
+                  <FieldError msg={errors.current_city} />
                 </div>
                 <div>
                   <LabelText>Province</LabelText>
                   <Input name="current_province" value={formData.current_province} onChange={handleChange} placeholder="Cebu" className="rounded-xl h-11 bg-slate-50 border-slate-200" />
+                  <FieldError msg={errors.current_province} />
                 </div>
               </div>
 
               <div>
                 <LabelText>Home Address</LabelText>
                 <Input name="home_address" value={formData.home_address} onChange={handleChange} placeholder="123 Main St, Brgy..." className="rounded-xl h-11 bg-slate-50 border-slate-200" />
+                <FieldError msg={errors.home_address} />
               </div>
 
               {/* ── Education dropdown (restored) ────────────────────────── */}
@@ -269,6 +306,7 @@ const ApplicantHub = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                <FieldError msg={errors.education} />
               </div>
 
               <PrimaryBtn onClick={nextStep} className="w-full mt-2">
@@ -300,6 +338,7 @@ const ApplicantHub = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                <FieldError msg={errors.app_source} />
               </div>
 
               <div>
@@ -316,6 +355,7 @@ const ApplicantHub = () => {
                     </div>
                   ))}
                 </RadioGroup>
+                <FieldError msg={errors.stable_internet} />
               </div>
 
               {/* ── ISP dropdown — only shown when internet = Yes ─────────── */}
@@ -335,6 +375,7 @@ const ApplicantHub = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  <FieldError msg={errors.isp} />
                 </div>
               )}
 
@@ -372,6 +413,7 @@ const ApplicantHub = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                <FieldError msg={errors.applied_position} />
               </div>
 
               <div>
@@ -400,6 +442,7 @@ const ApplicantHub = () => {
                     {formData.resume ? "Click to change file" : "PDF, DOC, DOCX accepted"}
                   </span>
                 </button>
+                <FieldError msg={errors.resume} />
               </div>
 
               <div className="flex gap-3 mt-2">

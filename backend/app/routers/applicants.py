@@ -60,11 +60,6 @@ async def create_applicant(
 ):
     db = get_db()
 
-    # 1. Duplicate email check
-    if db.collection("applicants").where("email", "==", email).limit(1).get():
-        raise HTTPException(status_code=400, detail="Email already registered")
-
-    # 2. Job limit check
     job_doc  = None
     job_data = None
     jobs_q   = db.collection("jobs").where("title", "==", applied_position).limit(1).get()
@@ -77,13 +72,11 @@ async def create_applicant(
             job_doc.reference.update({"status": "Closed"})
             raise HTTPException(status_code=400, detail="This position is no longer accepting applications")
 
-    # 3. Upload resume to Cloudinary
     resume_bytes  = await resume.read()
     upload_result = upload_resume(resume_bytes, resume.filename)
     download_url  = upload_result["download_url"]
     public_id     = upload_result["public_id"]
 
-    # 4. Save initial Firestore document
     applicant_data = {
         "f_name": f_name, "l_name": l_name, "email": email, "phone": phone,
         "age": age, "gender": gender, "current_city": current_city,
@@ -103,7 +96,6 @@ async def create_applicant(
     _, new_ref = db.collection("applicants").add(applicant_data)
     applicant_data["id"] = new_ref.id
 
-    # 5. AI pipeline (best-effort, never blocks response)
     try:
         from app.ai.pdf_extract  import extract_resume_text
         from app.ai.resume_score import score_resume_quality

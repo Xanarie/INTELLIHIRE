@@ -16,16 +16,14 @@ from app.ai.utils import normalize_skill, keyword_hits
 
 @dataclass(frozen=True)
 class MatchConfig:
-    # Weights when explicit must_haves ARE provided (sum = 100)
-    w_must_have:    int = 40
-    w_similarity:   int = 35
-    w_nice_to_have: int = 10
-    w_experience:   int = 15
+    w_must_have:    int = 55   # +15 from similarity
+    w_similarity:   int = 0    # disabled
+    w_nice_to_have: int = 15   # +5
+    w_experience:   int = 30   # +15
 
-    # Weights when must_haves are AUTO-DERIVED from job text (sum = 100)
-    w_auto_keyword:    int = 35
-    w_similarity_auto: int = 50
-    w_experience_auto: int = 15
+    w_auto_keyword:    int = 70  # +35 from similarity
+    w_similarity_auto: int = 0   # disabled
+    w_experience_auto: int = 30  # +15
 
     # Knockout: if <60% of explicit must-haves are present, cap the score
     must_have_knockout_ratio: float = 0.60

@@ -1,4 +1,3 @@
-// frontend/src/components/admin/AI.jsx
 import React, { useState, useMemo, useEffect } from 'react';
 import { api } from '@/config/api';
 import { SlidersHorizontal, Trophy, Search, FileText, Sparkles, Briefcase, Loader2, Play, CheckCircle2, XCircle, RotateCcw } from 'lucide-react';
@@ -12,6 +11,14 @@ const WEIGHT_META = [
   { key: 'clarity',    label: 'Writing Clarity',      color: '#10B981', desc: 'Contact info, clean formatting, length' },
 ];
 const STORAGE_KEY = 'intellihire_score_weights';
+
+// ── NEW: Match scoring constants ──────────────────────────────────────────────
+const DEFAULT_MATCH_WEIGHTS = { keyword: 70, experience: 30 };
+const MATCH_WEIGHT_META = [
+  { key: 'keyword',    label: 'Keyword Coverage', color: '#2A5C9A', desc: 'How well resume keywords match the job description' },
+  { key: 'experience', label: 'Experience Fit',   color: '#10B981', desc: 'Candidate experience years vs job requirement' },
+];
+const MATCH_STORAGE_KEY = 'intellihire_match_weights';
 
 function recomputeScore(breakdown, weights) {
   if (!breakdown) return null;
@@ -159,6 +166,35 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
   };
 
   const totalWeight = WEIGHT_META.reduce((s, m) => s + weights[m.key], 0);
+
+  // ── NEW: Match Weights ────────────────────────────────────────────────────
+  const [matchWeights, setMatchWeights] = useState(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem(MATCH_STORAGE_KEY));
+      return s ? { ...DEFAULT_MATCH_WEIGHTS, ...s } : DEFAULT_MATCH_WEIGHTS;
+    } catch { return DEFAULT_MATCH_WEIGHTS; }
+  });
+  const [matchSaved, setMatchSaved] = useState(false);
+
+  const setMatchWeight = (key, raw) => {
+    const val = Math.max(0, Math.min(100, parseInt(raw) || 0));
+    setMatchWeights(w => ({ ...w, [key]: val }));
+    setMatchSaved(false);
+  };
+
+  const saveMatchWeights = () => {
+    localStorage.setItem(MATCH_STORAGE_KEY, JSON.stringify(matchWeights));
+    setMatchSaved(true);
+    setTimeout(() => setMatchSaved(false), 2000);
+  };
+
+  const resetMatchWeights = () => {
+    setMatchWeights(DEFAULT_MATCH_WEIGHTS);
+    localStorage.removeItem(MATCH_STORAGE_KEY);
+    setMatchSaved(false);
+  };
+
+  const totalMatchWeight = MATCH_WEIGHT_META.reduce((s, m) => s + matchWeights[m.key], 0);
 
   // ── Rank Candidates ───────────────────────────────────────────────────────
   const rankedByResume = useMemo(() => applicants
@@ -374,7 +410,69 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
         </div>
       </Panel>
 
-      {/* 2. Bulk Prescreen */}
+      {/* 2. Match Scoring Adjustment */}
+      <Panel
+        icon={SlidersHorizontal}
+        iconBg="bg-[#1A3C6E]"
+        title="Match Scoring Adjustment"
+        subtitle="Set how much each dimension contributes to the overall job match score"
+        action={
+          <>
+            <button onClick={resetMatchWeights}
+              className="text-[10px] font-black text-slate-400 hover:text-slate-700 uppercase tracking-wide px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-all">
+              Reset
+            </button>
+            <button onClick={saveMatchWeights}
+              className={`text-[10px] font-black uppercase tracking-wide px-4 py-1.5 rounded-xl transition-all ${
+                matchSaved ? 'bg-emerald-500 text-white' : 'bg-[#1A3C6E] text-white hover:bg-[#0D2645]'
+              }`}>
+              {matchSaved ? '✓ Saved' : 'Save Weights'}
+            </button>
+          </>
+        }
+      >
+        <div className="flex gap-8 items-start">
+          <div className="flex-1 space-y-3">
+            {MATCH_WEIGHT_META.map(({ key, label, color, desc }) => (
+              <div key={key} className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-100 hover:border-slate-200 bg-slate-50/50 transition-colors">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-slate-700 leading-tight">{label}</p>
+                  <p className="text-[9px] text-slate-400 truncate">{desc}</p>
+                </div>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={matchWeights[key]}
+                  onChange={e => setMatchWeight(key, e.target.value)}
+                  className="w-14 text-center text-sm font-black rounded-xl border-2 border-slate-200 focus:border-[#1A3C6E] outline-none py-1.5 bg-white transition-all shrink-0"
+                  style={{ color }}
+                />
+              </div>
+            ))}
+
+            {/* Semantic Similarity — disabled notice */}
+            <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50/30">
+              <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-slate-300" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-slate-400 leading-tight">Semantic Similarity</p>
+                <p className="text-[9px] text-slate-300 truncate">Currently disabled — embeddings are off</p>
+              </div>
+              <span className="w-14 text-center text-sm font-black text-slate-300">0</span>
+            </div>
+
+            {/* Total */}
+            <div className="flex justify-end pt-1 pr-1">
+              <span className={`text-[10px] font-black ${totalMatchWeight === 100 ? 'text-emerald-600' : 'text-amber-500'}`}>
+                Total: {totalMatchWeight}{totalMatchWeight !== 100 ? ' — will be normalised' : ' ✓'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </Panel>
+
+      {/* 3. Bulk Prescreen */}
       <Panel
         icon={Play}
         iconBg="bg-[#00AECC]"
@@ -428,51 +526,45 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
           <div className="flex items-center gap-6 py-2">
             <div className="flex-1 grid grid-cols-3 gap-4">
               {[
-                { label: 'Total Applicants',  value: applicants.length,  color: '#1A3C6E' },
-                { label: 'Already Screened',  value: applicants.length - unscreenedCount, color: '#00AECC' },
-                { label: 'Pending Screening', value: unscreenedCount,    color: unscreenedCount > 0 ? '#f59e0b' : '#10b981' },
+                { label: 'Total Applicants',  value: applicants.length,                      color: '#1A3C6E' },
+                { label: 'Already Screened',  value: applicants.length - unscreenedCount,    color: '#00AECC' },
+                { label: 'Pending Screening', value: unscreenedCount,                        color: unscreenedCount > 0 ? '#F59E0B' : '#10B981' },
               ].map(({ label, value, color }) => (
-                <div key={label} className="bg-slate-50 rounded-2xl px-5 py-4 border border-slate-100">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+                <div key={label} className="text-center px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100">
                   <p className="text-2xl font-black" style={{ color }}>{value}</p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide mt-0.5">{label}</p>
                 </div>
               ))}
             </div>
-            {bulkQueue.length === 0 && (
-              <div className="flex items-center gap-2 text-emerald-600">
-                <CheckCircle2 size={18} />
-                <span className="text-xs font-bold">All applicants already screened</span>
-              </div>
-            )}
           </div>
         )}
 
-        {/* Running state — progress bar */}
+        {/* Running state */}
         {bulkRunning && (
-          <div className="py-2 space-y-3">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-600">
-              <span>Processing applicants…</span>
-              <span style={{ color: '#1A3C6E' }}>{bulkProgress} / {bulkTotal}</span>
+          <div className="py-4 space-y-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-slate-600">Processing applicants…</span>
+              <span className="font-black text-[#1A3C6E]">{bulkProgress} / {bulkTotal}</span>
             </div>
-            <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-300"
                 style={{
-                  width: bulkTotal > 0 ? `${(bulkProgress / bulkTotal) * 100}%` : '0%',
+                  width: `${bulkTotal > 0 ? (bulkProgress / bulkTotal) * 100 : 0}%`,
                   background: 'linear-gradient(90deg, #1A3C6E 0%, #00AECC 100%)',
                 }}
               />
             </div>
-            <p className="text-[10px] text-slate-400">This may take a while — each applicant's resume is being scored by AI</p>
+            <p className="text-[10px] text-slate-400">This may take a while for large batches</p>
           </div>
         )}
 
         {/* Done state */}
-        {bulkDone !== null && (
-          <div className="py-2 flex items-start gap-5">
-            {/* Success count */}
-            <div className="flex items-center gap-3 flex-1">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
+        {!bulkRunning && bulkDone !== null && (
+          <div className="py-2 space-y-3">
+            {/* Success */}
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
                 <CheckCircle2 size={20} className="text-emerald-500" />
               </div>
               <div>
@@ -502,7 +594,7 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
       {/* Bottom row */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 
-        {/* 2. Rank Candidates */}
+        {/* Rank Candidates */}
         <Panel
           icon={Trophy}
           iconBg="bg-amber-400"
@@ -531,7 +623,7 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
           )}
         </Panel>
 
-        {/* 3. Smart Screen */}
+        {/* Smart Screen */}
         <Panel
           icon={Search}
           iconBg="bg-violet-500"
