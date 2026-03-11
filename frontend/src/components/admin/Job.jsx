@@ -165,8 +165,8 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate, 
                                 }}
                                 className="text-xs font-bold text-rose-400 hover:text-rose-600 transition-colors ml-auto"
                                 > 
-                                Delete
-                              </button>
+                                  Delete
+                                </button>
                               </div>
                             </div>
                           );
