@@ -22,6 +22,8 @@ from app.ai.matching     import score_applicant, set_match_config, MatchConfig
 from app.ai.summarizer   import summarize_prescreen
 from app.routers.logs    import write_log
 
+from app import cache as _cache
+
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
 
@@ -84,10 +86,14 @@ def _build_match_config(adv: dict) -> MatchConfig:
 
 @router.get("/applicants")
 def get_all_applicants():
-    db   = get_db()
-    docs = db.collection("applicants").order_by("created_at").get()
-    return [doc_to_dict(d) for d in docs]
-
+    cached = _cache.get("applicants")
+    if cached is not None:
+        return cached
+    db     = get_db()
+    docs   = db.collection("applicants").order_by("created_at").get()
+    result = [doc_to_dict(d) for d in docs]
+    _cache.set("applicants", result, ttl_seconds=30)
+    return result
 
 @router.get("/applicants/{applicant_id}", response_model=UserResponse)
 def get_applicant(applicant_id: str):
@@ -107,6 +113,7 @@ def update_applicant(applicant_id: str, applicant_data: UserUpdate, actor: str =
     payload = {k: v for k, v in applicant_data.model_dump(exclude_unset=True).items() if v is not None}
     ref.update(payload)
     data = doc_to_dict(ref.get())
+    _cache.invalidate("applicants")
     write_log(
         action="applicant_updated", entity_type="applicant",
         entity_id=applicant_id,   entity_name=_applicant_name(data),
@@ -126,6 +133,7 @@ def update_applicant_status(applicant_id: str, status_data: StatusUpdate, actor:
     prev = doc_to_dict(doc).get("hiring_status", "—")
     ref.update({"hiring_status": status_data.hiring_status})
     data = doc_to_dict(ref.get())
+    _cache.invalidate("applicants")
     write_log(
         action="status_changed", entity_type="applicant",
         entity_id=applicant_id,  entity_name=_applicant_name(data),
@@ -146,6 +154,7 @@ def save_recruiter_notes(applicant_id: str, payload: dict, actor: str = Depends(
     endorsed_position = payload.get("endorsed_position", "")
     ref.update({"recruiter_notes": notes, "endorsed_position": endorsed_position})
     data = doc_to_dict(ref.get())
+    _cache.invalidate("applicants")
     write_log(
         action="notes_updated", entity_type="applicant",
         entity_id=applicant_id, entity_name=_applicant_name(data),
@@ -195,6 +204,7 @@ def delete_applicant(applicant_id: str, actor: str = Depends(get_actor)):
     for s in db.collection("applicant_statuses").where("applicant_id", "==", applicant_id).get():
         s.reference.delete()
     ref.delete()
+    _cache.invalidate("applicants")
     write_log(
         action="applicant_deleted", entity_type="applicant",
         entity_id=applicant_id,    entity_name=name,
@@ -410,6 +420,7 @@ def create_status(applicant_id: str, status_data: ApplicantStatusResponse):
     }
     _, ref = db.collection("applicant_statuses").add(payload)
     payload["id"] = ref.id
+    _cache.invalidate("jobs")
     return payload
 
 
@@ -430,6 +441,9 @@ def get_latest_status(applicant_id: str):
 
 @router.get("/jobs")
 def get_all_jobs():
+    cached = _cache.get("jobs")
+    if cached is not None:
+        return cached
     db   = get_db()
     docs = db.collection("jobs").order_by("created_at").get()
     return [doc_to_dict(d) for d in docs]
@@ -450,6 +464,7 @@ def create_job(job_data: JobCreate, actor: str = Depends(get_actor)):
     payload = {**job_data.model_dump(), "created_at": datetime.now(timezone.utc).isoformat()}
     _, ref        = db.collection("jobs").add(payload)
     payload["id"] = ref.id
+    _cache.invalidate("jobs")
     write_log(
         action="job_created", entity_type="job",
         entity_id=ref.id,    entity_name=job_data.title,
@@ -468,6 +483,7 @@ def update_job(job_id: str, job_data: JobUpdate, actor: str = Depends(get_actor)
     payload = {k: v for k, v in job_data.model_dump(exclude_unset=True).items() if v is not None}
     ref.update(payload)
     updated = doc_to_dict(ref.get())
+    _cache.invalidate("jobs")
     write_log(
         action="job_updated", entity_type="job",
         entity_id=job_id,    entity_name=updated.get("title", job_id),
@@ -486,6 +502,7 @@ def delete_job(job_id: str, actor: str = Depends(get_actor)):
         raise HTTPException(status_code=404, detail="Job not found")
     title = doc_to_dict(doc).get("title", job_id)
     ref.delete()
+    _cache.invalidate("jobs")
     write_log(
         action="job_deleted", entity_type="job",
         entity_id=job_id,    entity_name=title,
@@ -518,6 +535,7 @@ def create_employee(emp_data: dict, actor: str = Depends(get_actor)):
     }
     _, ref        = db.collection("employees").add(payload)
     payload["id"] = ref.id
+    _cache.invalidate("jobs")
     write_log(
         action="employee_added", entity_type="employee",
         entity_id=ref.id,       entity_name=payload["name"],
@@ -536,6 +554,7 @@ def delete_employee(employee_id: str, actor: str = Depends(get_actor)):
         raise HTTPException(status_code=404, detail="Employee not found")
     name = doc_to_dict(doc).get("name", employee_id)
     ref.delete()
+    _cache.invalidate("employees")
     write_log(
         action="employee_deleted", entity_type="employee",
         entity_id=employee_id,    entity_name=name,
