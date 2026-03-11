@@ -324,22 +324,6 @@ const ActivityLog = () => {
           ))
         )}
       </div>
-
-      {/* Legend */}
-      {!loading && logs.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {Object.entries(ACTION_META).map(([key, meta]) => (
-            <span
-              key={key}
-              className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full border cursor-pointer transition-opacity ${meta.color} ${actionFilter === key ? 'opacity-100 ring-1 ring-offset-1 ring-slate-300' : 'opacity-70 hover:opacity-100'}`}
-              onClick={() => setActionFilter(prev => prev === key ? '' : key)}
-            >
-              {meta.label}
-            </span>
-          ))}
-        </div>
-      )}
-
     </div>
   );
 };

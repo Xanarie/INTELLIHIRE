@@ -495,7 +495,7 @@ const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap =
           <DetailItem label="Phone Number"     value={applicant.phone}                             icon={<Phone         className="h-4 w-4" style={{ color: TEAL }} />} />
           <DetailItem label="Applied Position" value={applicant.applied_position}                  icon={<Briefcase     className="h-4 w-4" style={{ color: TEAL }} />} />
           {applicant.education       && <DetailItem label="Highest Education" value={applicant.education}       icon={<GraduationCap className="h-4 w-4" style={{ color: TEAL }} />} />}
-          {applicant.app_source      && <DetailItem label="How Did You Hear?" value={applicant.app_source}      icon={<Radio         className="h-4 w-4" style={{ color: TEAL }} />} />}
+          {applicant.app_source      && <DetailItem label="Source" value={applicant.app_source}      icon={<Radio         className="h-4 w-4" style={{ color: TEAL }} />} />}
           {applicant.stable_internet && <DetailItem label="Stable Internet"   value={applicant.stable_internet} icon={<Wifi          className="h-4 w-4" style={{ color: TEAL }} />} />}
           <button
             onClick={handleViewResume}

@@ -710,7 +710,7 @@ const [authChecked, setAuthChecked] = useState(false);
       <JobModal isOpen={isJobModalOpen} onClose={handleCloseJobModal} onSave={handleSaveJobWithToast} initialData={editingJob} />
 
       {/* ── Applicant Detail slide-over ──────────────────────────────────────── */}
-      <div className={`fixed inset-y-0 right-0 w-full md:w-[500px] bg-white shadow-2xl z-[100] transform transition-transform duration-500 ease-in-out border-l border-slate-100 ${selectedApplicantId ? 'translate-x-0' : 'translate-x-full'}`}>
+      <div className={`fixed inset-y-0 right-0 w-full md:w-[720px] bg-white shadow-2xl z-[100] transform transition-transform duration-500 ease-in-out border-l border-slate-100 ${selectedApplicantId ? 'translate-x-0' : 'translate-x-full'}`}>
         {selectedApplicantId && (
           <ApplicantDetail
             applicantId={selectedApplicantId}

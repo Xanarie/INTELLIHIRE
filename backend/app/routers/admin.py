@@ -62,9 +62,14 @@ def _download_resume_bytes(url: str, timeout: int = 30) -> bytes:
         raise HTTPException(status_code=500, detail=f"Could not download resume: {e}")
 
 def _extract_focus_text(resume_bytes: bytes, suffix: str = ".pdf") -> str:
+    from app.ai.pdf_extract import extract_resume_text
+    import os
+    import tempfile
+
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         tmp.write(resume_bytes)
         tmp_path = tmp.name
+
     try:
         extracted = extract_resume_text(tmp_path)
         return (extracted.get("focus_text") or "").strip()
@@ -79,6 +84,20 @@ def _build_match_config(adv: dict) -> MatchConfig:
     valid = {k: v for k, v in adv.items() if k in MatchConfig.__dataclass_fields__}
     return MatchConfig(**valid)
 
+def _get_resume_suffix(data: dict) -> str:
+    if data.get("resume_input_type") == "manual_cv":
+        return ".txt"
+
+    resume_path = (data.get("resume_path") or "").lower()
+
+    if ".docx" in resume_path:
+        return ".docx"
+    if ".txt" in resume_path:
+        return ".txt"
+    if ".pdf" in resume_path:
+        return ".pdf"
+
+    return ".pdf"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # APPLICANTS
@@ -231,27 +250,46 @@ def view_resume(applicant_id: str, actor: str = Depends(get_actor)):
         performed_by=actor,
     )
     resume_bytes = _download_resume_bytes(url)
+    suffix = _get_resume_suffix(data)
+
+    if suffix == ".txt":
+        return Response(
+            content=resume_bytes,
+            media_type="text/plain; charset=utf-8",
+            headers={"Content-Disposition": "inline; filename=resume.txt"},
+        )
+
+    if suffix == ".docx":
+        return Response(
+            content=resume_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": "inline; filename=resume.docx"},
+        )
+
     return Response(
-        content=resume_bytes, media_type="application/pdf",
+        content=resume_bytes,
+        media_type="application/pdf",
         headers={"Content-Disposition": "inline; filename=resume.pdf"},
     )
 
 
 @router.post("/applicants/{applicant_id}/prescreen", response_model=UserResponse)
 def rerun_prescreen(applicant_id: str, actor: str = Depends(get_actor)):
-    db  = get_db()
+    db = get_db()
     ref = db.collection("applicants").document(applicant_id)
-    doc = ref.get()
-    if not doc.exists:
+    snap = ref.get()
+    if not snap.exists:
         raise HTTPException(status_code=404, detail="Applicant not found")
-    data = doc_to_dict(doc)
-    name = _applicant_name(data)
-    url  = data.get("resume_path")
-    if not url:
-        raise HTTPException(status_code=400, detail="No resume on file")
 
-    resume_bytes      = _download_resume_bytes(url)
-    resume_focus_text = _extract_focus_text(resume_bytes)
+    data = doc_to_dict(snap)
+    name = _applicant_name(data)
+    url = data.get("resume_path")
+    if not url:
+        raise HTTPException(status_code=400, detail="Applicant has no resume")
+
+    resume_bytes = _download_resume_bytes(url)
+    suffix = _get_resume_suffix(data)
+    resume_focus_text = _extract_focus_text(resume_bytes, suffix=suffix)
     if not resume_focus_text:
         raise HTTPException(status_code=422, detail="Could not extract text from resume")
 
@@ -328,7 +366,8 @@ def get_role_suggestions(applicant_id: str):
         return {"suggestions": []}
 
     resume_bytes      = _download_resume_bytes(url)
-    resume_focus_text = _extract_focus_text(resume_bytes)
+    suffix = _get_resume_suffix(data)
+    resume_focus_text = _extract_focus_text(resume_bytes, suffix=suffix)
     if not resume_focus_text:
         return {"suggestions": []}
 
@@ -393,7 +432,8 @@ def smart_screen(title: str):
         if not url:
             return None
         try:
-            text   = _extract_focus_text(_download_resume_bytes(url, timeout=20))
+            suffix = _get_resume_suffix(a)
+            text   = _extract_focus_text(_download_resume_bytes(url, timeout=20), suffix=suffix)
             result = score_applicant(text, jd_text)
             return {**a, "role_match_score": result.get("score", 0.0),
                     "role_match_bucket": result.get("bucket", "Weak"), "role_match_json": result}
