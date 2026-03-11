@@ -250,8 +250,9 @@ def rerun_prescreen(applicant_id: str, actor: str = Depends(get_actor)):
     if not url:
         raise HTTPException(status_code=400, detail="No resume on file")
 
-    resume_bytes      = _download_resume_bytes(url)
-    resume_focus_text = _extract_focus_text(resume_bytes)
+    resume_bytes = _download_resume_bytes(url)
+    suffix = _get_resume_suffix(data)
+    resume_focus_text = _extract_focus_text(resume_bytes, suffix=suffix)
     if not resume_focus_text:
         raise HTTPException(status_code=422, detail="Could not extract text from resume")
 
@@ -294,10 +295,18 @@ def rerun_prescreen(applicant_id: str, actor: str = Depends(get_actor)):
         updates["ai_recommended_role"] = best
 
     try:
-        updates["ai_prescreening_summary"] = summarize_prescreen(resume_focus_text, data)
+        applied = data.get("applied_position", "")
+        applied_match = job_scores.get(applied)
+        best = max(job_scores, key=lambda t: job_scores[t].get("score", 0.0)) if job_scores else applied
+        prescreen = summarize_prescreen(
+            resume_focus_text=resume_focus_text,
+            job_title=applied,
+            match_result=applied_match,
+            suitable_role=best,
+        )
+        updates["ai_prescreening_summary"] = prescreen.get("summary", "")
     except Exception as e:
         print(f"[Prescreen] Summarizer failed: {e}")
-
     if updates:
         ref.update(updates)
 
@@ -328,7 +337,8 @@ def get_role_suggestions(applicant_id: str):
         return {"suggestions": []}
 
     resume_bytes      = _download_resume_bytes(url)
-    resume_focus_text = _extract_focus_text(resume_bytes)
+    suffix = _get_resume_suffix(data)
+    resume_focus_text = _extract_focus_text(resume_bytes, suffix=suffix)
     if not resume_focus_text:
         return {"suggestions": []}
 

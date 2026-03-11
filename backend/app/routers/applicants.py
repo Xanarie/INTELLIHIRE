@@ -72,13 +72,15 @@ async def create_applicant(
         if count >= limit:
             job_doc.reference.update({"status": "Closed"})
             raise HTTPException(status_code=400, detail="This position is no longer accepting applications")
-
+        
     if resume and resume.filename:
-        resume_bytes  = await resume.read()
-        upload_result = upload_resume(resume_bytes, resume.filename)
+        resume_bytes      = await resume.read()
+        upload_result     = upload_resume(resume_bytes, resume.filename)
+        resume_input_type = "file_upload"
     elif cover_letter and cover_letter.strip():
-        resume_bytes  = cover_letter.encode("utf-8")
-        upload_result = upload_resume(resume_bytes, f"{f_name}_{l_name}_application.txt")
+        resume_bytes      = cover_letter.encode("utf-8")
+        upload_result     = upload_resume(resume_bytes, f"{f_name}_{l_name}_application.txt")
+        resume_input_type = "manual_cv"
     else:
         raise HTTPException(status_code=400, detail="A resume file or application letter is required.")
 
@@ -94,6 +96,7 @@ async def create_applicant(
         "applied_position": applied_position,
         "resume_path": download_url,
         "resume_storage_path": public_id,
+        "resume_input_type": resume_input_type,
         "hiring_status": "Pre-screening",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "ai_prescreening_summary": None, "ai_match_json": None,
@@ -111,7 +114,7 @@ async def create_applicant(
         from app.ai.summarizer   import summarize_prescreen
         import tempfile
 
-        suffix = f".{resume.filename.rsplit('.', 1)[-1]}" if "." in resume.filename else ".pdf"
+        suffix = ".txt" if resume_input_type == "manual_cv" else (f".{resume.filename.rsplit('.', 1)[-1]}" if resume and resume.filename and "." in resume.filename else ".pdf")
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             tmp.write(resume_bytes)
             tmp_path = tmp.name
