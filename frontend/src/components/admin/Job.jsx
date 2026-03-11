@@ -137,7 +137,8 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate, 
                           return (
                             <div
                               key={job.id}
-                              className="bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all p-4"
+                              onClick={() => onEdit(job)}
+                              className="bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all p-4 cursor-pointer"
                             >
                               <div className="flex items-start justify-between gap-2 mb-2">
                                 <div className="min-w-0">
@@ -156,26 +157,16 @@ const JobTab = ({ jobs = [], applicants = [], onEdit, onDelete, onStatusUpdate, 
                                 <span>{dateStr}</span>
                               </div>
 
-                              <div className="flex items-center gap-2 pt-2 border-t border-slate-50">
+                              <div className="flex items-center pt-2 border-t border-slate-50">
                                 <button
-                                  onClick={() => onEdit(job)}
-                                  className="text-xs font-bold transition-opacity hover:opacity-70"
-                                  style={{ color: TEAL }}
-                                >
-                                  Edit
-                                </button>
-                                {job.status === 'Open'
-                                  ? <button onClick={() => onStatusUpdate(job, 'Closed')} className="text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors">Close</button>
-                                  : job.status === 'Closed'
-                                  ? <button onClick={() => onStatusUpdate(job, 'Open')} className="text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors">Reopen</button>
-                                  : <button onClick={() => onStatusUpdate(job, 'Open')} className="text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors">Publish</button>
-                                }
-                                <button
-                                  onClick={() => onDelete(job.id)}
-                                  className="text-xs font-bold text-rose-400 hover:text-rose-600 transition-colors ml-auto"
-                                >
-                                  Delete
-                                </button>
+                                  onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDelete(job.id);
+                                }}
+                                className="text-xs font-bold text-rose-400 hover:text-rose-600 transition-colors ml-auto"
+                                > 
+                                Delete
+                              </button>
                               </div>
                             </div>
                           );

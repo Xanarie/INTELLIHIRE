@@ -4,7 +4,12 @@ import { Trash2, MoreVertical, Briefcase, Clock3, Sparkles } from 'lucide-react'
 import { getScoreTag } from '../../utils/scoreUtils';
 
 const PIPELINE_STAGES = [
-  "Pre-screening", "Screening", "Interview", "Offer", "Accepted", "Rejected",
+  "Pre-screening",
+  "Screening",
+  "Interview",
+  "Offer",
+  "Accepted",
+  "Rejected",
 ];
 
 // These columns show a minimal name-only card — no AI data, no clutter
@@ -13,24 +18,32 @@ const SIMPLE_CARD_STAGES = new Set(["Accepted", "Rejected"]);
 const RecruitmentTab = ({ applicants = [], onSelect, onDelete }) => {
   const groupedApplicants = useMemo(() => {
     const groups = {};
-    PIPELINE_STAGES.forEach(stage => { groups[stage] = []; });
+    PIPELINE_STAGES.forEach(stage => {
+      groups[stage] = [];
+    });
+
     applicants.forEach(app => {
       const status = (app.hiring_status || '').trim().toLowerCase();
-      const match  = PIPELINE_STAGES.find(s => s.toLowerCase() === status);
+      const match = PIPELINE_STAGES.find(s => s.toLowerCase() === status);
       (match ? groups[match] : groups['Pre-screening']).push(app);
     });
+
     return groups;
   }, [applicants]);
 
   const getMatchScore = (app) => {
-    const raw = app.ai_job_match_score ?? app.ai_match_json?.score ?? app.ai_resume_score ?? null;
+    const raw = app.ai_job_match_score 
+      ?? app.ai_match_json?.score 
+      ?? app.ai_resume_score 
+      ?? null;
     return raw !== null ? Math.round(Number(raw)) : null;
   };
 
   const getExperience = (app) => {
     const sig = app.ai_resume_score_json?.breakdown?.experience_signals
-             ?? app.ai_match_json?.breakdown?.experience_signals
-             ?? null;
+      ?? app.ai_match_json?.breakdown?.experience_signals
+      ?? null;
+
     if (sig === null) return null;
     if (sig >= 25) return 'Strong';
     if (sig >= 18) return 'Good';
@@ -50,7 +63,9 @@ const RecruitmentTab = ({ applicants = [], onSelect, onDelete }) => {
           >
             {/* Column header */}
             <div className="bg-[#E8F0F8] px-4 py-3 border-b-2 border-[#2A5C9A]/20 flex items-center justify-between shrink-0">
-              <h3 className="font-black text-[#2A5C9A] text-[10px] uppercase tracking-wider">{stage}</h3>
+              <h3 className="font-black text-[#2A5C9A] text-[10px] uppercase tracking-wider">
+                {stage}
+              </h3>
               <span className="text-[9px] font-black bg-[#2A5C9A]/10 text-[#2A5C9A] rounded-full px-2 py-0.5">
                 {groupedApplicants[stage].length}
               </span>
@@ -61,7 +76,7 @@ const RecruitmentTab = ({ applicants = [], onSelect, onDelete }) => {
               {groupedApplicants[stage].map((app) => {
                 const id = app.id || app.applicantid || app.applicant_id;
 
-                /* ── Accepted / Rejected: name only ── */
+                // ── Accepted / Rejected: name only ──
                 if (SIMPLE_CARD_STAGES.has(stage)) {
                   return (
                     <div
@@ -73,7 +88,10 @@ const RecruitmentTab = ({ applicants = [], onSelect, onDelete }) => {
                         {app.f_name} {app.l_name}
                       </h4>
                       <button
-                        onClick={(e) => { e.stopPropagation(); onDelete(e, id); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete(e, id);
+                        }}
                         className="text-slate-200 hover:text-rose-500 transition-colors shrink-0"
                       >
                         <Trash2 size={12} />
@@ -82,10 +100,10 @@ const RecruitmentTab = ({ applicants = [], onSelect, onDelete }) => {
                   );
                 }
 
-                /* ── All other stages: full card ── */
+                // ── All other stages: full card ──
                 const matchScore = getMatchScore(app);
                 const experience = getExperience(app);
-                const tag        = matchScore !== null
+                const tag = matchScore !== null
                   ? getScoreTag(matchScore)
                   : (app.ai_job_match_bucket ? getScoreTag(app.ai_job_match_bucket) : null);
 
@@ -101,7 +119,10 @@ const RecruitmentTab = ({ applicants = [], onSelect, onDelete }) => {
                         {app.f_name} {app.l_name}
                       </h4>
                       <button
-                        onClick={(e) => { e.stopPropagation(); onDelete(e, id); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete(e, id);
+                        }}
                         className="text-slate-200 hover:text-rose-500 transition-colors shrink-0"
                       >
                         <Trash2 size={12} />
@@ -125,18 +146,22 @@ const RecruitmentTab = ({ applicants = [], onSelect, onDelete }) => {
                     </div>
 
                     {/* Qualification tag */}
-                    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-tight mb-1.5 ${
-                      tag
-                        ? `${tag.bg} ${tag.text} ${tag.border}`
-                        : 'bg-slate-50 text-slate-400 border-slate-200'
-                    }`}>
+                    <div
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-tight mb-1.5 ${
+                        tag
+                          ? `${tag.bg} ${tag.text} ${tag.border}`
+                          : 'bg-slate-50 text-slate-400 border-slate-200'
+                      }`}
+                    >
                       {tag && <span className={`w-1.5 h-1.5 rounded-full ${tag.dot}`} />}
                       {tag ? tag.label : 'Not Screened'}
                     </div>
 
                     {/* Score % */}
                     {matchScore !== null && (
-                      <p className="text-[9px] font-bold text-slate-400 mb-2">{matchScore}%</p>
+                      <p className="text-[9px] font-bold text-slate-400 mb-2">
+                        {matchScore}%
+                      </p>
                     )}
 
                     {/* Recommended role */}

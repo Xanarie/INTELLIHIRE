@@ -518,6 +518,33 @@ const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap =
                 ))}
               </SelectContent>
             </Select>
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              Final Endorsed Position
+            </h3>
+            <Select
+              value={endorsedPosition || "__none__"}
+              onValueChange={v => setEndorsedPosition(v === "__none__" ? "" : v)}
+            >
+              <SelectTrigger
+                className="w-full h-12 border-2 border-slate-100 bg-slate-50 font-bold"
+                style={{ color: NAVY }}
+              >
+                <SelectValue placeholder="Select active position…" />
+              </SelectTrigger>
+              <SelectContent
+                className="bg-white border border-slate-200 rounded-xl shadow-xl z-[200]"
+                position="popper"
+                sideOffset={5}
+              >
+                <SelectItem value="__none__">— None —</SelectItem>
+                {jobs
+                  .filter(j => j.status === 'Open')
+                  .map(j => (
+                    <SelectItem key={j.id} value={j.title}>{j.title}</SelectItem>
+                  ))
+                }
+              </SelectContent>
+            </Select>
 
             {hasChanged && (
               <button
@@ -565,7 +592,6 @@ const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap =
         </div>
 
         <Separator />
-
         <div className="space-y-3">
           <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recruiter Notes</h3>
           <textarea
@@ -580,33 +606,6 @@ const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap =
           
 
           <div className="space-y-3 pt-2">
-            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              Final Endorsed Position
-            </h3>
-            <Select
-              value={endorsedPosition || "__none__"}
-              onValueChange={v => setEndorsedPosition(v === "__none__" ? "" : v)}
-            >
-              <SelectTrigger
-                className="w-full h-12 border-2 border-slate-100 bg-slate-50 font-bold"
-                style={{ color: NAVY }}
-              >
-                <SelectValue placeholder="Select active position…" />
-              </SelectTrigger>
-              <SelectContent
-                className="bg-white border border-slate-200 rounded-xl shadow-xl z-[200]"
-                position="popper"
-                sideOffset={5}
-              >
-                <SelectItem value="__none__">— None —</SelectItem>
-                {jobs
-                  .filter(j => j.status === 'Open')
-                  .map(j => (
-                    <SelectItem key={j.id} value={j.title}>{j.title}</SelectItem>
-                  ))
-                }
-              </SelectContent>
-            </Select>
             <p className="text-[10px] text-slate-400 italic">
               Saved together with recruiter notes.
             </p>

@@ -96,16 +96,20 @@ const LogRow = ({ log, onRefresh }) => {
     (log.details || '').includes("→ 'Archived'");
 
   const handleUnarchive = async () => {
-    if (!log.entity_id) return;
-    const prevStatus = parsePrevStatus(log.details);
-    try {
-      setUnarchiving(true);
-      await axios.patch(`${api}/applicants/${log.entity_id}`, { hiring_status: prevStatus });
-      onRefresh?.();
-    } catch (err) {
-      console.error('Unarchive failed:', err);
-    } finally {
-      setUnarchiving(false);
+     if (!log.entity_id) return;
+  const prevStatus = parsePrevStatus(log.details);
+   try {
+    setUnarchiving(true);
+
+    await api.patch(`/applicants/${log.entity_id}`, {
+      hiring_status: prevStatus
+    });
+
+    onRefresh?.();
+   } catch (err) {
+    console.error('Unarchive failed:', err);
+  } finally {
+    setUnarchiving(false);
     }
   };
 
