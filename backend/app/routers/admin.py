@@ -531,34 +531,55 @@ def get_all_employees():
 
 @router.post("/employees")
 def create_employee(emp_data: dict, actor: str = Depends(get_actor)):
+    import firebase_admin.auth as fb_auth
+
+    name            = emp_data.get("name", "")
+    email           = emp_data.get("email", "")
+    password        = emp_data.get("password", "")
+    permission_rule = emp_data.get("permission_role", "Recruiter")
+
+    try:
+        user_record = fb_auth.create_user(email=email, password=password, display_name=name)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to create auth account: {str(e)}")
+
     db = get_db()
     payload = {
-        "name":       emp_data.get("name", ""),
-        "role":       emp_data.get("role", ""),
-        "dept":       emp_data.get("dept", "General"),
-        "email":      emp_data.get("email", ""),
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "name":            name,
+        "email":           email,
+        "permission_rule": permission_rule,
+        "uid":             user_record.uid,
+        "created_at":      datetime.now(timezone.utc).isoformat(),
     }
     _, ref        = db.collection("employees").add(payload)
     payload["id"] = ref.id
-    _cache.invalidate("jobs")
     write_log(
         action="employee_added", entity_type="employee",
-        entity_id=ref.id,       entity_name=payload["name"],
-        details=f"Employee '{payload['name']}' added as {payload['role']}.",
+        entity_id=ref.id,       entity_name=name,
+        details=f"Employee '{name}' added as {permission_rule}.",
         performed_by=actor,
     )
     return payload
 
-
 @router.delete("/employees/{employee_id}")
 def delete_employee(employee_id: str, actor: str = Depends(get_actor)):
+    import firebase_admin.auth as fb_auth
+
     db  = get_db()
     ref = db.collection("employees").document(employee_id)
     doc = ref.get()
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Employee not found")
-    name = doc_to_dict(doc).get("name", employee_id)
+    data = doc_to_dict(doc)
+    name = data.get("name", employee_id)
+    uid  = data.get("uid")
+
+    if uid:
+        try:
+            fb_auth.delete_user(uid)
+        except Exception as e:
+            print(f"[employees] Auth delete failed for uid {uid}: {e}")
+
     ref.delete()
     _cache.invalidate("employees")
     write_log(
