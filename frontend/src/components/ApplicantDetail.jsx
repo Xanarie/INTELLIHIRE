@@ -313,8 +313,8 @@ const AIMatchInsights = ({ applicant, topRole }) => {
       <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
         <div className="px-4 divide-y divide-slate-100">
           <InsightRow label="Resume Score" value={hasResumeScore ? `${Math.round(applicant.ai_resume_score)}/100` : "—"} valueColor={hasResumeScore ? resumeColor : "text-slate-400"} subtext={applicant.ai_resume_bucket ?? undefined} />
-          <InsightRow label="Match Score"  value={hasJobMatch ? `${Math.round(applicant.ai_job_match_score)}/100` : "N/A"} valueColor={hasJobMatch ? matchColor : "text-slate-400"} subtext={hasJobMatch ? (applicant.ai_job_match_bucket ?? undefined) : "No job description set"} />
           <InsightRow label="Experience"   value={expData.label} valueColor={expData.color} />
+          <InsightRow label="Match Score"  value={hasJobMatch ? `${Math.round(applicant.ai_job_match_score)}/100` : "N/A"} valueColor={hasJobMatch ? matchColor : "text-slate-400"} subtext={hasJobMatch ? (applicant.ai_job_match_bucket ?? undefined) : "No job description set"} />
           <InsightRow
             label="Recommended Role"
             value={recommendedTitle}
