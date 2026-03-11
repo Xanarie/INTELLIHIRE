@@ -56,7 +56,8 @@ async def create_applicant(
     stable_internet:  str = Form(...),
     applied_position: str = Form(...),
     isp:              Optional[str] = Form(None),
-    resume:           UploadFile = File(...),
+    cover_letter:     Optional[str] = Form(None),
+    resume:           Optional[UploadFile] = File(None),
 ):
     db = get_db()
 
@@ -72,10 +73,17 @@ async def create_applicant(
             job_doc.reference.update({"status": "Closed"})
             raise HTTPException(status_code=400, detail="This position is no longer accepting applications")
 
-    resume_bytes  = await resume.read()
-    upload_result = upload_resume(resume_bytes, resume.filename)
-    download_url  = upload_result["download_url"]
-    public_id     = upload_result["public_id"]
+    if resume and resume.filename:
+        resume_bytes  = await resume.read()
+        upload_result = upload_resume(resume_bytes, resume.filename)
+    elif cover_letter and cover_letter.strip():
+        resume_bytes  = cover_letter.encode("utf-8")
+        upload_result = upload_resume(resume_bytes, f"{f_name}_{l_name}_application.txt")
+    else:
+        raise HTTPException(status_code=400, detail="A resume file or application letter is required.")
+
+    download_url = upload_result["download_url"]
+    public_id    = upload_result["public_id"]
 
     applicant_data = {
         "f_name": f_name, "l_name": l_name, "email": email, "phone": phone,

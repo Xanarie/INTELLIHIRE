@@ -93,7 +93,7 @@ const ApplicantHub = () => {
     current_city: "", current_province: "", education: "",
     home_address: "", gender: "Male",
     app_source: "", stable_internet: "No", isp: "",
-    applied_position: "", resume: null,
+    applied_position: "", resume: null, noResume: false, cover_letter: "",
   });
 
   useEffect(() => {
@@ -122,7 +122,9 @@ const ApplicantHub = () => {
     }
     if (step === 3) {
       if (!formData.applied_position)           e.applied_position = 'Please select a position';
-      if (!formData.resume)                     e.resume           = 'Please upload your resume';
+
+      if (!formData.noResume && !formData.resume) e.resume = 'Please upload your resume or select "No Resume Available"';
+      if (formData.noResume && !formData.cover_letter.trim()) e.cover_letter = 'Please provide your application letter or CV summary';
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -136,7 +138,7 @@ const ApplicantHub = () => {
   const handleFileChange  = e => setFormData({ ...formData, resume: e.target.files[0] });
 
   const handleSubmit = async () => {
-    if (!formData.resume) return alert("Please upload your resume");
+    if (!formData.noResume && !formData.resume) return alert("Please upload your resume");
     if (submitting) return;
     setSubmitting(true);
     const data = new FormData();
@@ -417,32 +419,66 @@ const ApplicantHub = () => {
               </div>
 
               <div>
-                <LabelText>Upload Resume (PDF / DOC / DOCX)</LabelText>
+                <LabelText>Upload Resume (PDF / DOCX)</LabelText>
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".pdf,.doc,.docx"
+                  accept=".pdf,.docx"
                   onChange={handleFileChange}
                   className="hidden"
                 />
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full h-28 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 transition-all text-slate-400 hover:border-slate-400 hover:text-slate-600"
-                  style={
-                    formData.resume
-                      ? { borderColor: "#00AECC", background: "#E6F7FB", color: "#1A3C6E" }
-                      : { borderColor: "#CBD5E1" }
-                  }
-                >
-                  <FileText size={26} />
-                  <span className="text-sm font-semibold">
-                    {formData.resume ? formData.resume.name : "Click to upload resume"}
-                  </span>
-                  <span className="text-xs text-slate-400">
-                    {formData.resume ? "Click to change file" : "PDF, DOC, DOCX accepted"}
-                  </span>
-                </button>
-                <FieldError msg={errors.resume} />
+
+                {!formData.noResume && (
+                  <>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full h-28 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 transition-all text-slate-400 hover:border-slate-400 hover:text-slate-600"
+                      style={
+                        formData.resume
+                          ? { borderColor: "#00AECC", background: "#E6F7FB", color: "#1A3C6E" }
+                          : { borderColor: "#CBD5E1" }
+                      }
+                    >
+                      <FileText size={26} />
+                      <span className="text-sm font-semibold">
+                        {formData.resume ? formData.resume.name : "Click to upload resume"}
+                      </span>
+                      <span className="text-xs text-slate-400">
+                        {formData.resume ? "Click to change file" : "PDF or DOCX accepted"}
+                      </span>
+                    </button>
+                    <FieldError msg={errors.resume} />
+                  </>
+                )}
+
+                {/* No Resume checkbox */}
+                <label className="flex items-center gap-2.5 mt-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={formData.noResume}
+                    onChange={e => setFormData({ ...formData, noResume: e.target.checked, resume: null, cover_letter: "" })}
+                    className="w-4 h-4 rounded accent-[#00AECC]"
+                  />
+                  <span className="text-sm font-semibold text-slate-600">No Resume Available</span>
+                </label>
+                <p className="text-[11px] text-slate-400 mt-1 leading-relaxed ml-6">
+                  If you don't have a resume file, you may paste or write your application letter or CV summary below instead. Note that applications without a resume file may receive a lower initial screening score.
+                </p>
+
+                {formData.noResume && (
+                  <div className="mt-3">
+                    <textarea
+                      rows={8}
+                      value={formData.cover_letter}
+                      onChange={e => setFormData({ ...formData, cover_letter: e.target.value })}
+                      placeholder="Write or paste your application letter, work experience, skills, and qualifications here…"
+                      className="w-full bg-slate-50 border-2 border-transparent rounded-xl px-4 py-3 text-sm text-slate-700 placeholder:text-slate-300 outline-none resize-none leading-relaxed transition-all"
+                      onFocus={e => e.target.style.borderColor = '#00AECC'}
+                      onBlur={e  => e.target.style.borderColor = 'transparent'}
+                    />
+                    <FieldError msg={errors.cover_letter} />
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-3 mt-2">
@@ -472,7 +508,7 @@ const ApplicantHub = () => {
                 <ReviewItem icon={Globe}     label="City / Province" value={`${formData.current_city}, ${formData.current_province}`} />
                 <ReviewItem icon={Globe}     label="Education"       value={formData.education} />
                 <ReviewItem icon={Briefcase} label="Position"        value={formData.applied_position} />
-                <ReviewItem icon={FileText}  label="Resume"          value={formData.resume?.name} />
+                <ReviewItem icon={FileText}  label="Resume"          value={formData.noResume ? "No file — application letter provided" : formData.resume?.name} />
               </div>
 
               <div className="flex gap-4 mt-4">

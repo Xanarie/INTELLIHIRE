@@ -1,6 +1,7 @@
 # backend/app/ai/pdf_extract.py
 from __future__ import annotations
 
+from fileinput import filename
 import os
 import re
 import subprocess
@@ -73,6 +74,21 @@ def extract_text_pymupdf(pdf_path: str) -> str:
         parts.append(page.get_text("text"))
     doc.close()
     return "\n".join(parts).strip()
+
+
+# REPLACE WITH:
+# ----------------------------
+# DOCX extraction
+# ----------------------------
+def extract_text_docx(docx_path: str) -> str:
+    try:
+        from docx import Document
+    except ImportError as e:
+        raise ImportError(
+            "python-docx is not installed. Run:\npip install python-docx"
+        ) from e
+    doc = Document(docx_path)
+    return "\n".join(p.text for p in doc.paragraphs).strip()
 
 
 # ----------------------------
@@ -277,6 +293,20 @@ def extract_resume_text(
     pdf_path: str,
     cfg: Optional[PdfExtractConfig] = None,
 ) -> Dict[str, object]:
+    ext = os.path.splitext(pdf_path)[-1].lower()
+
+    if ext == ".txt":
+        with open(pdf_path, "r", encoding="utf-8", errors="ignore") as f:
+            full = clean_text(f.read())
+        sections = extract_sections(full)
+        focus    = build_focus_text(sections) or full
+        return {"full_text": full, "focus_text": focus, "sections": sections, "method": "plaintext"}
+
+    if ext == ".docx":
+        full     = clean_text(extract_text_docx(pdf_path))
+        sections = extract_sections(full)
+        focus    = build_focus_text(sections) or full
+        return {"full_text": full, "focus_text": focus, "sections": sections, "method": "docx"}
     """
     Extract resume text from a PDF with:
       - fast PyMuPDF extraction
