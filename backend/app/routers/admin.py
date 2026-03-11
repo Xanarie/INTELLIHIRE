@@ -313,12 +313,17 @@ def rerun_prescreen(applicant_id: str, actor: str = Depends(get_actor)):
 
 @router.get("/applicants/{applicant_id}/role-suggestions")
 def get_role_suggestions(applicant_id: str):
-    db  = get_db()
-    doc = db.collection("applicants").document(applicant_id).get()
-    if not doc.exists:
-        raise HTTPException(status_code=404, detail="Applicant not found")
-    data = doc_to_dict(doc)
-    url  = data.get("resume_path")
+    cached_list = _cache.get("applicants")
+    data = next((a for a in (cached_list or []) if a.get("id") == applicant_id), None)
+
+    if data is None:
+        db  = get_db()
+        doc = db.collection("applicants").document(applicant_id).get()
+        if not doc.exists:
+            raise HTTPException(status_code=404, detail="Applicant not found")
+        data = doc_to_dict(doc)
+
+    url = data.get("resume_path")
     if not url:
         return {"suggestions": []}
 
@@ -327,6 +332,7 @@ def get_role_suggestions(applicant_id: str):
     if not resume_focus_text:
         return {"suggestions": []}
 
+    db             = get_db()
     open_jobs      = db.collection("jobs").where("status", "==", "Open").get()
     scoreable_jobs = [doc_to_dict(j) for j in open_jobs if _has_desc(doc_to_dict(j))]
 
