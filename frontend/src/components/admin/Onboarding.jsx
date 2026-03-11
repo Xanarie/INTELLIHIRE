@@ -74,7 +74,7 @@ const ConfirmModal = ({ type, name, onConfirm, onCancel, loading }) => {
 };
 
 // ── Candidate Card ────────────────────────────────────────────────────────────
-const CandidateCard = ({ person, onStatusChange, onNotify, onSwitchTab, onRefresh }) => {
+const CandidateCard = ({ person, onStatusChange, onNotify, onSwitchTab, onRefresh, onChecklistUpdate }) => {
   const id = person.id || person.applicantid || person.applicant_id;
   const name = `${person.f_name} ${person.l_name}`;
 
@@ -95,7 +95,7 @@ const CandidateCard = ({ person, onStatusChange, onNotify, onSwitchTab, onRefres
       .then(() => {
         setSaved(true);
         setTimeout(() => setSaved(false), 1500);
-        if (onRefresh) onRefresh();
+        if (onChecklistUpdate) onChecklistUpdate(id, updated);
       })
       .catch(err => console.error('Checklist auto-save failed:', err));
   };
@@ -221,7 +221,7 @@ const CandidateCard = ({ person, onStatusChange, onNotify, onSwitchTab, onRefres
 };
 
 // ── Main Component ────────────────────────────────────────────────────────────
-const OnboardingTab = ({ applicants = [], jobs = [], onRefresh, onSelectApplicant, onNotify, onSwitchTab }) => {
+const OnboardingTab = ({ applicants = [], jobs = [], onRefresh, onChecklistUpdate, onSelectApplicant, onNotify, onSwitchTab }) => {
   const [localApplicants, setLocalApplicants] = useState(applicants);
 
   // Keep in sync when parent refreshes
@@ -277,12 +277,13 @@ const OnboardingTab = ({ applicants = [], jobs = [], onRefresh, onSelectApplican
             <div className="space-y-4">
               {groupedByDept[dept].map(person => (
                 <CandidateCard
-                  key={person.id || person.applicantid || person.applicant_id}
+                  key={person.id || p.applicantid}
                   person={person}
                   onStatusChange={handleStatusChange}
                   onNotify={onNotify}
                   onSwitchTab={onSwitchTab}
                   onRefresh={onRefresh}
+                  onChecklistUpdate={onChecklistUpdate}
                 />
               ))}
             </div>

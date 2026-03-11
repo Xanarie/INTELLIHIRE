@@ -1,12 +1,11 @@
-# backend/app/cache.py
-"""
-Simple in-memory TTL cache for read-heavy Firestore endpoints.
-Reduces repeated identical reads within the same Render process lifetime.
-"""
-import time
-from typing import Any, Optional
+# backend/app/routers/logs.py
+from datetime import datetime, timezone
+from typing import Optional
 
-_store: dict[str, tuple[Any, float]] = {}
+from fastapi import APIRouter, Query
+from app.firebase_client import get_db, doc_to_dict
+
+router = APIRouter(prefix="/api/admin/logs", tags=["Activity Logs"])
 
 
 def write_log(
@@ -31,26 +30,29 @@ def write_log(
     except Exception as e:
         print(f"[logs] write_log failed silently: {e}")
 
-def get(key: str) -> Optional[Any]:
-    entry = _store.get(key)
-    if entry is None:
-        return None
-    value, expires_at = entry
-    if time.time() > expires_at:
-        del _store[key]
-        return None
-    return value
+
+@router.get("")
+def get_logs(
+    limit:       int           = Query(default=100, le=500),
+    entity_type: Optional[str] = Query(default=None),
+    action:      Optional[str] = Query(default=None),
+):
+    db    = get_db()
+    query = db.collection("activity_logs").order_by("timestamp", direction="DESCENDING")
+
+    if entity_type:
+        query = query.where("entity_type", "==", entity_type)
+    if action:
+        query = query.where("action", "==", action)
+
+    docs = query.limit(limit).get()
+    return [{"id": d.id, **d.to_dict()} for d in docs]
 
 
-def set(key: str, value: Any, ttl_seconds: int = 30) -> None:
-    _store[key] = (value, time.time() + ttl_seconds)
-
-
-def invalidate(key: str) -> None:
-    _store.pop(key, None)
-
-
-def invalidate_prefix(prefix: str) -> None:
-    keys = [k for k in _store if k.startswith(prefix)]
-    for k in keys:
-        del _store[k]
+@router.delete("")
+def clear_logs():
+    db   = get_db()
+    docs = db.collection("activity_logs").limit(500).get()
+    for d in docs:
+        d.reference.delete()
+    return {"ok": True, "deleted": len(docs)}

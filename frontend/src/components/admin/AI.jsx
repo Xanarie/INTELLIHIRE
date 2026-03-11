@@ -264,13 +264,8 @@ const AITab = ({ applicants = [], jobs = [], onSelectApplicant }) => {
     jobs.filter(j => j.status === 'Open').forEach(j => {
       if (!seen.has(j.title)) { seen.add(j.title); list.push(j.title); }
     });
-    applicants.forEach(app => {
-      [app.ai_recommended_role, app.applied_position].filter(Boolean).forEach(r => {
-        if (!seen.has(r)) { seen.add(r); list.push(r); }
-      });
-    });
     return list.sort();
-  }, [applicants, jobs]);
+  }, [jobs]);
 
   const [selectedRole, setSelectedRole] = useState('');
   const [screenFilter, setScreenFilter] = useState('all');

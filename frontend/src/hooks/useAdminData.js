@@ -27,7 +27,7 @@ export const useAdminData = () => {
           return { data: [] };
         }),
       ]);
-        setApplicants(Array.isArray(appRes.data) ? appRes.data : []);
+        setApplicants(Array.isArray(appRes.data) ? appRes.data.filter(a => a.hiring_status !== 'Archived') : []);
         setEmployees(Array.isArray(empRes.data) ? empRes.data : []);
     } catch (err) {
       console.error('Critical data fetch failed', err?.response?.data ?? err);
@@ -81,6 +81,12 @@ export const useAdminData = () => {
     fetchData();
   }, [fetchData]);
 
+  const updateApplicantChecklist = useCallback((id, checklist) => {
+    setApplicants(prev => prev.map(a =>
+      (a.id ?? a.applicantid) === id ? { ...a, onboarding_checklist: checklist } : a
+    ));
+  }, []);
+
   return {
     applicants,
     employees,
@@ -88,6 +94,7 @@ export const useAdminData = () => {
     handleDeleteApplicant,
     handleSaveEmployee,
     handleDeleteEmployee,
+    updateApplicantChecklist,
     refresh: fetchData,
   };
 };

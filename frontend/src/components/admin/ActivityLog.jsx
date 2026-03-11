@@ -76,9 +76,13 @@ function timeAgo(iso) {
  * Parses the previous hiring stage from a log details string.
  * e.g. "Stage moved: 'Accepted' → 'Archived'" → "Accepted"
  */
+const STAGE_ORDER = ["Pre-screening", "Screening", "Interview", "Offer", "Accepted"];
+
 function parsePrevStatus(details) {
   const m = (details || '').match(/Stage moved: '(.+?)'\s*→/);
-  return m?.[1] ?? 'Accepted';
+  const prev = m?.[1] ?? 'Accepted';
+  const idx = STAGE_ORDER.indexOf(prev);
+  return idx > 0 ? STAGE_ORDER[idx - 1] : STAGE_ORDER[0];
 }
 
 // ── Log Row ───────────────────────────────────────────────────────────────────

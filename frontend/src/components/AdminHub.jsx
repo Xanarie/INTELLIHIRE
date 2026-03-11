@@ -36,9 +36,9 @@ const TEAL_LIGHT = '#E6F7FB';
 const TABS = [
   { id: 'dashboard',   label: 'Dashboard',     icon: LayoutDashboard, searchable: false },
   { id: 'recruitment', label: 'Recruitment',   icon: Users,           searchable: true  },
+  { id: 'jobs',        label: 'Jobs',          icon: Briefcase,       searchable: true  },
   { id: 'onboarding',  label: 'Onboarding',    icon: GraduationCap,   searchable: false },
   { id: 'employee',    label: 'Employees',     icon: Users,           searchable: true  },
-  { id: 'jobs',        label: 'Jobs',          icon: Briefcase,       searchable: true  },
   { id: 'ai',          label: 'AI Screening',  icon: Sparkles,        searchable: false },
   { id: 'logs',        label: 'Activity Logs', icon: ScrollText,      searchable: false },
 ];
@@ -411,7 +411,8 @@ const [authChecked, setAuthChecked] = useState(false);
 
   const {
     applicants, employees, loading: appLoading,
-    handleSaveEmployee, handleDeleteEmployee, handleDeleteApplicant, refresh: refreshApplicants,
+    handleSaveEmployee, handleDeleteEmployee, handleDeleteApplicant,
+    updateApplicantChecklist, refresh: refreshApplicants,
   } = useAdminData();
 
   const {
@@ -696,6 +697,7 @@ const [authChecked, setAuthChecked] = useState(false);
               applicants={onboardingApplicants}
               jobs={jobs}
               onRefresh={refresh}
+              onChecklistUpdate={updateApplicantChecklist}
               onSelectApplicant={setSelectedApplicantId}
               onNotify={pushNotification}
               onSwitchTab={switchTab}
