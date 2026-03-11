@@ -37,16 +37,16 @@ def get_logs(
     entity_type: Optional[str] = Query(default=None),
     action:      Optional[str] = Query(default=None),
 ):
-    db    = get_db()
-    query = db.collection("activity_logs").order_by("timestamp", direction="DESCENDING")
+    db   = get_db()
+    docs = db.collection("activity_logs").order_by("timestamp", direction="DESCENDING").limit(500).get()
+    logs = [{"id": d.id, **d.to_dict()} for d in docs]
 
     if entity_type:
-        query = query.where("entity_type", "==", entity_type)
+        logs = [l for l in logs if l.get("entity_type") == entity_type]
     if action:
-        query = query.where("action", "==", action)
+        logs = [l for l in logs if l.get("action") == action]
 
-    docs = query.limit(limit).get()
-    return [{"id": d.id, **d.to_dict()} for d in docs]
+    return logs[:limit]
 
 
 @router.delete("")

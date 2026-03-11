@@ -442,7 +442,7 @@ const [authChecked, setAuthChecked] = useState(false);
   const [editingJob,          setEditingJob]          = useState(null);
   const [toast,               setToast]               = useState(null);
   const [isSettingsOpen,      setIsSettingsOpen]      = useState(false);
-  const { notifications, unreadCount, popupQueue, markAllRead, dismissPopup } = useNotifications();
+//  const { notifications, unreadCount, popupQueue, markAllRead, dismissPopup } = useNotifications();
 
   useEffect(() => {
     if (currentUserRole !== 'Admin' && RECRUITER_RESTRICTED_TABS.has(activeTab)) {
@@ -620,18 +620,7 @@ const [authChecked, setAuthChecked] = useState(false);
             {showSearch && (
               <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder={activeTabMeta?.label ?? activeTab} />
             )}
-            <NotificationBell
-              notifications={notifications}
-              unreadCount={unreadCount}
-              popupQueue={popupQueue}
-              markAllRead={markAllRead}
-              dismissPopup={dismissPopup}
-              currentUid={auth.currentUser?.uid}
-              onNavigate={(tab, entityId) => {
-                switchTab(tab);
-                if (entityId) setSelectedApplicantId(entityId);
-              }}
-            />
+
           </div>
         </header>
 
