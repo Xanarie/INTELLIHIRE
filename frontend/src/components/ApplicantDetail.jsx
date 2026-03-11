@@ -3,6 +3,7 @@ import { api, API_PUBLIC } from '../config/api';
 import {
   X, Mail, Briefcase, User, Send, Sparkles, ChevronRight,
   Phone, FileText, Loader2, AlertTriangle, Copy,
+  GraduationCap, Radio, Wifi,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -489,10 +490,13 @@ const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap =
         )}
 
         <div className="space-y-5">
-          <DetailItem label="Full Name"        value={`${applicant.f_name} ${applicant.l_name}`} icon={<User      className="h-4 w-4" style={{ color: TEAL }} />} />
-          <DetailItem label="Email Address"    value={applicant.email}                            icon={<Mail      className="h-4 w-4" style={{ color: TEAL }} />} />
-          <DetailItem label="Phone Number"     value={applicant.phone}                            icon={<Phone     className="h-4 w-4" style={{ color: TEAL }} />} />
-          <DetailItem label="Applied Position" value={applicant.applied_position}                 icon={<Briefcase className="h-4 w-4" style={{ color: TEAL }} />} />
+          <DetailItem label="Full Name"        value={`${applicant.f_name} ${applicant.l_name}`}  icon={<User          className="h-4 w-4" style={{ color: TEAL }} />} />
+          <DetailItem label="Email Address"    value={applicant.email}                             icon={<Mail          className="h-4 w-4" style={{ color: TEAL }} />} />
+          <DetailItem label="Phone Number"     value={applicant.phone}                             icon={<Phone         className="h-4 w-4" style={{ color: TEAL }} />} />
+          <DetailItem label="Applied Position" value={applicant.applied_position}                  icon={<Briefcase     className="h-4 w-4" style={{ color: TEAL }} />} />
+          {applicant.education       && <DetailItem label="Highest Education" value={applicant.education}       icon={<GraduationCap className="h-4 w-4" style={{ color: TEAL }} />} />}
+          {applicant.app_source      && <DetailItem label="How Did You Hear?" value={applicant.app_source}      icon={<Radio         className="h-4 w-4" style={{ color: TEAL }} />} />}
+          {applicant.stable_internet && <DetailItem label="Stable Internet"   value={applicant.stable_internet} icon={<Wifi          className="h-4 w-4" style={{ color: TEAL }} />} />}
           <button
             onClick={handleViewResume}
             className="flex items-center gap-2 text-sm font-bold hover:underline transition-colors"
@@ -505,58 +509,6 @@ const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap =
         <Separator />
 
         <div className="space-y-4">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Change Hiring Stage</label>
-            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger className="w-full h-12 border-2 border-slate-100 bg-slate-50 font-bold" style={{ color: NAVY }}>
-                <SelectValue placeholder="Select stage…" />
-              </SelectTrigger>
-              <SelectContent className="bg-white border border-slate-200 rounded-xl shadow-xl z-[200]" position="popper" sideOffset={5}>
-                {HIRING_STAGES.map(s => (
-                  <SelectItem key={s} value={s} disabled={!isStageAllowed(applicant.hiring_status, s)}>
-                    {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              Final Endorsed Position
-            </h3>
-            <Select
-              value={endorsedPosition || "__none__"}
-              onValueChange={v => setEndorsedPosition(v === "__none__" ? "" : v)}
-            >
-              <SelectTrigger
-                className="w-full h-12 border-2 border-slate-100 bg-slate-50 font-bold"
-                style={{ color: NAVY }}
-              >
-                <SelectValue placeholder="Select active position…" />
-              </SelectTrigger>
-              <SelectContent
-                className="bg-white border border-slate-200 rounded-xl shadow-xl z-[200]"
-                position="popper"
-                sideOffset={5}
-              >
-                <SelectItem value="__none__">— None —</SelectItem>
-                {jobs
-                  .filter(j => j.status === 'Open')
-                  .map(j => (
-                    <SelectItem key={j.id} value={j.title}>{j.title}</SelectItem>
-                  ))
-                }
-              </SelectContent>
-            </Select>
-
-            {hasChanged && (
-              <button
-                onClick={handleConfirmMove}
-                disabled={saving}
-                className="w-full h-12 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-60 animate-in slide-in-from-bottom-2"
-                style={{ background: `linear-gradient(135deg, ${NAVY} 0%, ${TEAL} 100%)` }}
-              >
-                {saving ? "Updating…" : <><Send className="h-4 w-4" />Confirm Change to {selectedStatus}</>}
-              </button>
-            )}
-
           <button
             onClick={handleRunPrescreen}
             disabled={rerunning}
@@ -565,10 +517,6 @@ const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap =
             <Sparkles size={16} />
             {rerunning ? "Running…" : "Rerun Prescreen"}
           </button>
-
-          <p className="text-[10px] text-slate-400 italic">
-            * Applicant stays in their current stage until you confirm the change.
-          </p>
         </div>
 
         <Separator />
@@ -592,6 +540,34 @@ const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap =
         </div>
 
         <Separator />
+
+        <div className="space-y-4">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Change Hiring Stage</label>
+          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+            <SelectTrigger className="w-full h-12 border-2 border-slate-100 bg-slate-50 font-bold" style={{ color: NAVY }}>
+              <SelectValue placeholder="Select stage…" />
+            </SelectTrigger>
+            <SelectContent className="bg-white border border-slate-200 rounded-xl shadow-xl z-[200]" position="popper" sideOffset={5}>
+              {HIRING_STAGES.map(s => (
+                <SelectItem key={s} value={s} disabled={!isStageAllowed(applicant.hiring_status, s)}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {hasChanged && (
+            <button
+              onClick={handleConfirmMove}
+              disabled={saving}
+              className="w-full h-12 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-60 animate-in slide-in-from-bottom-2"
+              style={{ background: `linear-gradient(135deg, ${NAVY} 0%, ${TEAL} 100%)` }}
+            >
+              {saving ? "Updating…" : <><Send className="h-4 w-4" />Confirm Change to {selectedStatus}</>}
+            </button>
+          )}
+        </div>
+
         <div className="space-y-3">
           <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recruiter Notes</h3>
           <textarea
@@ -603,55 +579,82 @@ const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap =
             onFocus={e => e.target.style.borderColor = TEAL}
             onBlur={e  => e.target.style.borderColor = 'transparent'}
           />
-          
+
+          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest pt-1">
+            Final Endorsed Position
+          </h3>
+          <Select
+            value={endorsedPosition || "__none__"}
+            onValueChange={v => setEndorsedPosition(v === "__none__" ? "" : v)}
+          >
+            <SelectTrigger
+              className="w-full h-12 border-2 border-slate-100 bg-slate-50 font-bold"
+              style={{ color: NAVY }}
+            >
+              <SelectValue placeholder="Select active position…" />
+            </SelectTrigger>
+            <SelectContent
+              className="bg-white border border-slate-200 rounded-xl shadow-xl z-[200]"
+              position="popper"
+              sideOffset={5}
+            >
+              <SelectItem value="__none__">— None —</SelectItem>
+              {jobs
+                .filter(j => j.status === 'Open')
+                .map(j => (
+                  <SelectItem key={j.id} value={j.title}>{j.title}</SelectItem>
+                ))
+              }
+            </SelectContent>
+          </Select>
 
           <div className="space-y-3 pt-2">
             <p className="text-[10px] text-slate-400 italic">
               Saved together with recruiter notes.
             </p>
             <button
-            onClick={handleSaveNotes}
-            disabled={savingNotes}
-            className="w-full py-3 rounded-xl text-white text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-60 flex items-center justify-center gap-2"
-            style={{ background: `linear-gradient(135deg, ${NAVY} 0%, ${TEAL} 100%)` }}
-          >
-            {savingNotes ? (
-              <>
-                <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                </svg>
-                Saving…
-              </>
-            ) : notesSaved ? "✓ Notes Saved" : "Save Notes"}
-          </button>
+              onClick={handleSaveNotes}
+              disabled={savingNotes}
+              className="w-full py-3 rounded-xl text-white text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+              style={{ background: `linear-gradient(135deg, ${NAVY} 0%, ${TEAL} 100%)` }}
+            >
+              {savingNotes ? (
+                <>
+                  <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  </svg>
+                  Saving…
+                </>
+              ) : notesSaved ? "✓ Notes Saved" : "Save Notes"}
+            </button>
           </div>
+
           {showEndorsedRequiredModal && (
-        <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[300] flex items-center justify-center p-4"
-          onClick={() => setShowEndorsedRequiredModal(false)}
-        >
-        <div
-          className="bg-white rounded-3xl w-full max-w-sm shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
-          onClick={e => e.stopPropagation()}
-        >
-          <div className="p-6 text-center">
-          <p className="text-sm font-bold text-rose-600 uppercase mb-2">Final Endorsed Position Required</p>
-          <p className="text-xs text-slate-600 mb-4">
-          You must select a Final Endorsed Position before moving this applicant to Accepted or Rejected.
-          </p>
-        <button
-          onClick={() => setShowEndorsedRequiredModal(false)}
-          className="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs transition-colors"
-        >
-          OK
-          </button>
+            <div
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[300] flex items-center justify-center p-4"
+              onClick={() => setShowEndorsedRequiredModal(false)}
+            >
+              <div
+                className="bg-white rounded-3xl w-full max-w-sm shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="p-6 text-center">
+                  <p className="text-sm font-bold text-rose-600 uppercase mb-2">Final Endorsed Position Required</p>
+                  <p className="text-xs text-slate-600 mb-4">
+                    You must select a Final Endorsed Position before moving this applicant to Accepted or Rejected.
+                  </p>
+                  <button
+                    onClick={() => setShowEndorsedRequiredModal(false)}
+                    className="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs transition-colors"
+                  >
+                    OK
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
-   </div>
-      )}
-        </div>
-        
 
       </CardContent>
     </Card>
