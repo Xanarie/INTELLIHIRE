@@ -22,6 +22,7 @@ class UserResponse(BaseModel):
     applied_position: Optional[str] = None
     resume_path: Optional[str] = None
     resume_storage_path: Optional[str] = None
+    resume_input_type: Optional[str] = None
     hiring_status: Optional[str] = "Pre-screening"
     ai_prescreening_summary: Optional[str] = None
     ai_match_json: Optional[Any] = None
