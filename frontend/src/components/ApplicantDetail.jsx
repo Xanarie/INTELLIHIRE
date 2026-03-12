@@ -351,6 +351,8 @@ const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap =
   const [savingNotes,      setSavingNotes]      = useState(false);
   const [notesSaved,       setNotesSaved]       = useState(false);
   const [showEndorsedRequiredModal, setShowEndorsedRequiredModal] = useState(false);
+  const [cvText,             setCvText]             = useState(null);
+  const [cvLoading,          setCvLoading]          = useState(false);
 
   const fetchApplicant = async () => {
     if (!applicantId) return;
@@ -381,6 +383,23 @@ const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap =
   };
 
   useEffect(() => { fetchApplicant(); }, [applicantId]);
+
+  useEffect(() => {
+    if (!applicant || applicant.resume_input_type !== "manual_cv") { setCvText(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        setCvLoading(true);
+        const res = await api.get(`/applicants/${applicantId}/resume`, { responseType: "text" });
+        if (!cancelled) setCvText(typeof res.data === "string" ? res.data : String(res.data));
+      } catch {
+        if (!cancelled) setCvText(null);
+      } finally {
+        if (!cancelled) setCvLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [applicant?.resume_input_type, applicantId]);
 
   const handleSaveNotes = async () => {
     try {
@@ -497,13 +516,32 @@ const ApplicantDetail = ({ applicantId, jobs = [], onClose, onRefresh, flagMap =
           {applicant.education       && <DetailItem label="Highest Education" value={applicant.education}       icon={<GraduationCap className="h-4 w-4" style={{ color: TEAL }} />} />}
           {applicant.app_source      && <DetailItem label="How Did You Hear?" value={applicant.app_source}      icon={<Radio         className="h-4 w-4" style={{ color: TEAL }} />} />}
           {applicant.stable_internet && <DetailItem label="Stable Internet"   value={applicant.stable_internet} icon={<Wifi          className="h-4 w-4" style={{ color: TEAL }} />} />}
-          <button
-            onClick={handleViewResume}
-            className="flex items-center gap-2 text-sm font-bold hover:underline transition-colors"
-            style={{ color: TEAL }}
-          >
-            <FileText className="h-4 w-4" /> View Resume
-          </button>
+          {applicant.resume_input_type === "manual_cv" ? (
+            <div className="space-y-2">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Application Letter</h3>
+              {cvLoading ? (
+                <div className="flex items-center gap-2 py-3 text-slate-400 text-xs">
+                  <Loader2 size={13} className="animate-spin" /> Loading application letter…
+                </div>
+              ) : cvText ? (
+                <div className="p-4 bg-white border border-slate-100 rounded-xl shadow-sm text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                  {cvText}
+                </div>
+              ) : (
+                <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                  <p className="text-sm text-slate-500">Could not load application letter.</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={handleViewResume}
+              className="flex items-center gap-2 text-sm font-bold hover:underline transition-colors"
+              style={{ color: TEAL }}
+            >
+              <FileText className="h-4 w-4" /> View Resume
+            </button>
+          )}
         </div>
 
         <Separator />

@@ -71,6 +71,13 @@ def _extract_focus_text(resume_bytes: bytes, suffix: str = ".pdf") -> str:
     finally:
         os.unlink(tmp_path)
 
+def _get_resume_suffix(data: dict) -> str:
+    if data.get("resume_input_type") == "manual_cv":
+        return ".txt"
+    url = data.get("resume_path", "")
+    ext = os.path.splitext(url.split("?")[0])[-1].lower()
+    return ext if ext in (".pdf", ".docx", ".doc", ".txt") else ".pdf"
+
 def _applicant_name(data: dict) -> str:
     return f"{data.get('f_name', '')} {data.get('l_name', '')}".strip() or "Unknown"
 
@@ -231,6 +238,20 @@ def view_resume(applicant_id: str, actor: str = Depends(get_actor)):
         performed_by=actor,
     )
     resume_bytes = _download_resume_bytes(url)
+    suffix = _get_resume_suffix(data)
+
+    if suffix == ".txt":
+        return Response(
+            content=resume_bytes,
+            media_type="text/plain; charset=utf-8",
+            headers={"Content-Disposition": "inline; filename=application.txt"},
+        )
+    if suffix == ".docx":
+        return Response(
+            content=resume_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": "inline; filename=resume.docx"},
+        )
     return Response(
         content=resume_bytes, media_type="application/pdf",
         headers={"Content-Disposition": "inline; filename=resume.pdf"},
@@ -403,7 +424,7 @@ def smart_screen(title: str):
         if not url:
             return None
         try:
-            text   = _extract_focus_text(_download_resume_bytes(url, timeout=20))
+            text   = _extract_focus_text(_download_resume_bytes(url, timeout=20), suffix=_get_resume_suffix(a))
             result = score_applicant(text, jd_text)
             return {**a, "role_match_score": result.get("score", 0.0),
                     "role_match_bucket": result.get("bucket", "Weak"), "role_match_json": result}

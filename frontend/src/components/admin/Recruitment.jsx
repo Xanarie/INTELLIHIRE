@@ -103,9 +103,10 @@ const RecruitmentTab = ({ applicants = [], onSelect, onDelete }) => {
                 // ── All other stages: full card ──
                 const matchScore = getMatchScore(app);
                 const experience = getExperience(app);
-                const tag = matchScore !== null
-                  ? getScoreTag(matchScore)
-                  : (app.ai_job_match_bucket ? getScoreTag(app.ai_job_match_bucket) : null);
+                const bucket = app.ai_job_match_bucket ?? app.ai_resume_bucket ?? null;
+                const tag = bucket
+                  ? getScoreTag(bucket)
+                  : (matchScore !== null ? getScoreTag(matchScore) : null);
 
                 return (
                   <div
