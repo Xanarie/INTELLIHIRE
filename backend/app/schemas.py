@@ -32,7 +32,9 @@ class UserResponse(BaseModel):
     ai_job_match_score: Optional[float] = None
     ai_job_match_bucket: Optional[str] = None
     ai_job_match_json: Optional[Any] = None
+    ai_recommended_role: Optional[str] = None
     endorsed_position: Optional[str] = None
+    recruiter_notes: Optional[str] = None
 
     class Config:
         from_attributes = True
