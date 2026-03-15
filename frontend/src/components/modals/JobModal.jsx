@@ -1,6 +1,3 @@
-// frontend/src/components/modals/JobModal.jsx
-// Full content with ProgressPro brand colours replacing all emerald/green references
-//
 // Colour key:
 //   Primary navy  #1A3C6E   (was #10B981 / emerald)
 //   Hover navy    #0D2645
@@ -15,7 +12,7 @@ import {
 
 const DRAFT_KEY = 'intellihire_job_draft';
 
-const DEPARTMENTS = ['IT','Creative','Marketing','HR','Operations','Finance','Legal','Admin'];
+const DEPARTMENTS = ['Admin', 'Creative', 'Finance', 'HR', 'IT', 'Legal', 'Marketing', 'Operations', 'Sales'];
 const WORK_TYPES  = ['Full-time','Part-time','Contract','Freelance','Internship'];
 
 const NAVY = '#1A3C6E';
